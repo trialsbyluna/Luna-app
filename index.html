@@ -121,7 +121,7 @@
   </div>
 
   <script>
-    function submitEntry() {
+    async function submitEntry() {
       const userId = document.getElementById("userId").value.trim();
       const note = document.getElementById("note").value.trim();
       const message = document.getElementById("message");
@@ -131,8 +131,39 @@
         return;
       }
 
-      message.textContent =
-        "Your entry has been received. AI processing will be connected next.";
+      message.textContent = "Luna is thinking...";
+
+      try {
+        const response = await fetch("/api/process", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            userId: userId,
+            note: note
+          })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          message.textContent =
+            data.error || "Something went wrong.";
+          return;
+        }
+
+        message.textContent =
+          "Luna processed your entry successfully.";
+
+        console.log("Luna result:", data);
+
+      } catch (error) {
+        console.error(error);
+
+        message.textContent =
+          "Could not connect to Luna. Please try again.";
+      }
     }
   </script>
 
