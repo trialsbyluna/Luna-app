@@ -1,10 +1,140 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Luna</title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #f7f7f7;
+      color: #222;
+    }
+
+    .container {
+      max-width: 700px;
+      margin: 0 auto;
+      padding: 60px 20px;
+    }
+
+    h1 {
+      font-size: 42px;
+      margin-bottom: 10px;
+    }
+
+    .subtitle {
+      color: #666;
+      margin-bottom: 35px;
+    }
+
+    .card {
+      background: white;
+      border-radius: 16px;
+      padding: 25px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.06);
+    }
+
+    label {
+      display: block;
+      font-weight: bold;
+      margin-bottom: 8px;
+    }
+
+    input,
+    textarea {
+      width: 100%;
+      padding: 14px;
+      border: 1px solid #ddd;
+      border-radius: 10px;
+      font-size: 16px;
+      margin-bottom: 20px;
+    }
+
+    textarea {
+      min-height: 140px;
+      resize: vertical;
+    }
+
+    button {
+      width: 100%;
+      padding: 14px;
+      border: none;
+      border-radius: 10px;
+      background: #222;
+      color: white;
+      font-size: 16px;
+      cursor: pointer;
+    }
+
+    button:hover {
+      opacity: 0.9;
+    }
+
+    .message {
+      margin-top: 20px;
+      color: #666;
+    }
+  </style>
 </head>
+
 <body>
-  <h1>Talk to Luna</h1>
-  <p>Your Luna app is being rebuilt.</p>
+
+  <div class="container">
+
+    <h1>Talk to Luna</h1>
+
+    <p class="subtitle">
+      Tell Luna what you ate, your workout, or how you're feeling.
+    </p>
+
+    <div class="card">
+
+      <label for="userId">User ID</label>
+
+      <input
+        id="userId"
+        type="text"
+        placeholder="e.g. Saloni"
+      >
+
+      <label for="note">What happened?</label>
+
+      <textarea
+        id="note"
+        placeholder="e.g. I had two eggs and toast for breakfast"
+      ></textarea>
+
+      <button onclick="submitEntry()">
+        Send to Luna
+      </button>
+
+      <div id="message" class="message"></div>
+
+    </div>
+
+  </div>
+
+  <script>
+    function submitEntry() {
+      const userId = document.getElementById("userId").value.trim();
+      const note = document.getElementById("note").value.trim();
+      const message = document.getElementById("message");
+
+      if (!userId || !note) {
+        message.textContent = "Please enter your User ID and note.";
+        return;
+      }
+
+      message.textContent =
+        "Your entry has been received. AI processing will be connected next.";
+    }
+  </script>
+
 </body>
 </html>
