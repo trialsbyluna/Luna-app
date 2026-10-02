@@ -20,15 +20,24 @@ export default async function handler(req, res) {
       });
     }
 
+    if (!process.env.GOOGLE_SHEETS_WEBHOOK_URL) {
+      return res.status(500).json({
+        error: "Google Sheets connection is not configured."
+      });
+    }
+
+    if (!process.env.LUNA_SHEETS_SECRET) {
+      return res.status(500).json({
+        error: "Google Sheets security token is not configured."
+      });
+    }
+
+    const today = new Date().toISOString().slice(0, 10);
+
     const prompt = `
 You are Luna, an AI health and nutrition tracking assistant.
 
-Analyze the user's note and identify whether it contains:
-- food
-- workout
-- wellness information
-
-For now, focus on FOOD information.
+Analyze the user's note and extract FOOD information only.
 
 Return ONLY valid JSON in this exact format:
 
@@ -59,6 +68,9 @@ Rules:
 7. Return ONLY valid JSON.
 8. Do not provide explanations.
 
+Entry date:
+${today}
+
 User ID:
 ${userId || ""}
 
@@ -66,9 +78,10 @@ User note:
 ${note}
 `;
 
-    const maxAttempts = 3;
     let response;
     let data;
+
+    const maxAttempts = 3;
 
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       response = await fetch(
@@ -95,15 +108,18 @@ ${note}
 
       data = await response.json();
 
-      // Successful response
       if (response.ok) {
         break;
       }
 
-      // Retry temporary Gemini errors
-      if (response.status === 503 || response.status === 429) {
+      if (
+        response.status === 503 ||
+        response.status === 429 ||
+        response.status === 408
+      ) {
         if (attempt < maxAttempts) {
           const delay = Math.pow(2, attempt - 1) * 1000;
+
           console.log(
             `Gemini temporary error ${response.status}. Retrying in ${delay}ms...`
           );
@@ -116,7 +132,6 @@ ${note}
         }
       }
 
-      // Non-retryable error
       console.error("Gemini error:", data);
 
       return res.status(500).json({
@@ -133,8 +148,15 @@ ${note}
       });
     }
 
-    const text =
+    let text =
       data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
+
+    // Remove accidental Markdown code fences if Gemini returns them.
+    text = text
+      .replace(/^```json\s*/i, "")
+      .replace(/^```\s*/i, "")
+      .replace(/\s*```$/i, "")
+      .trim();
 
     let result;
 
@@ -149,7 +171,54 @@ ${note}
       });
     }
 
-    return res.status(200).json(result);
+    // Send the structured food data to Google Sheets.
+    const sheetsResponse = await fetch(
+      process.env.GOOGLE_SHEETS_WEBHOOK_URL,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          token: process.env.LUNA_SHEETS_SECRET,
+          date: today,
+          userId: userId || "",
+          foods: result.foods || []
+        })
+      }
+    );
+
+    const sheetsText = await sheetsResponse.text();
+
+    let sheetsData;
+
+    try {
+      sheetsData = JSON.parse(sheetsText);
+    } catch {
+      console.error(
+        "Google Sheets returned unexpected response:",
+        sheetsText
+      );
+
+      return res.status(500).json({
+        error: "Google Sheets returned an unexpected response."
+      });
+    }
+
+    if (!sheetsResponse.ok || !sheetsData.success) {
+      console.error("Google Sheets error:", sheetsData);
+
+      return res.status(500).json({
+        error: "Food was processed but could not be saved to Google Sheets."
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Food processed and saved successfully.",
+      foods: result.foods || [],
+      rowsAdded: sheetsData.rowsAdded || 0
+    });
 
   } catch (error) {
     console.error("Server error:", error);
