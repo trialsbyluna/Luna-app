@@ -32,103 +32,238 @@ export default async function handler(req, res) {
       });
     }
 
-    const today = new Date().toISOString().slice(0, 10);
+    const today =
+      new Date().toISOString().slice(0, 10);
 
     const prompt = `
-You are Luna, an AI health and nutrition tracking assistant.
+You are Luna, an AI health and wellness tracking assistant.
 
-Analyze the user's note.
+Analyze the user's note and extract ONLY information explicitly present
+or reasonably estimable from the information provided.
 
-Determine whether it contains:
-- FOOD information
-- WORKOUT information
-- BOTH
-- NEITHER
+The note may contain FOOD, WORKOUT, WELLNESS, multiple categories,
+or none.
 
-Return ONLY valid JSON.
+Return ONLY valid JSON matching the requested structure.
 
-Use exactly this structure:
+IMPORTANT GENERAL RULES:
 
-{
-  "type": "food",
-  "foods": [],
-  "workouts": []
-}
+- Never invent food, workout, or wellness events.
+- Extract every explicitly mentioned item.
+- Preserve information supplied by the user.
+- Use reasonable common nutritional estimates when nutrition is not supplied.
+- Use approximate estimates for workout calories only when enough workout
+  information exists.
+- Estimates must be clearly represented as estimates in the notes where useful.
+- If a category is not present, return an empty array.
+- Do not turn food into workout information.
+- Do not turn workout information into food information.
+- Do not turn wellness information into food or workout information.
 
-The "type" must be exactly:
-"food"
-"workout"
-"both"
-"none"
-
-FOOD OBJECT:
-
-{
-  "meal_time": "",
-  "meal_type": "",
-  "food_item": "",
-  "quantity_grams": null,
-  "calories": null,
-  "protein": null,
-  "carbs": null,
-  "fat": null,
-  "fiber": null,
-  "notes": ""
-}
-
-WORKOUT OBJECT:
-
-{
-  "exercise": "",
-  "muscle_group": "",
-  "set_number": null,
-  "reps_completed": null,
-  "weight_value": null,
-  "weight_type": "",
-  "set_result": "",
-  "duration_mins": null,
-  "notes": "",
-  "estimated_workout_calories": null
-}
-
-FOOD RULES:
-
-- Extract every food item mentioned.
-- One object per food item.
-- Estimate nutrition using common nutritional averages.
-- Do not invent food items.
-- If there is no food, foods must be [].
-
-WORKOUT RULES:
-
-- Extract every workout mentioned.
-- One object per explicitly described set.
-- If the user says "3 sets of squats, 10 reps each, 40 kg",
-  create 3 objects:
-  set 1, set 2, set 3.
-- Do not invent sets.
-- Do not invent reps.
-- Do not invent weight.
-- Do not invent exercises.
-- If only duration is provided, record duration and leave unknown fields blank.
-- Estimate workout calories only when a reasonable estimate is possible.
-- If there is no workout, workouts must be [].
-
-IMPORTANT:
-
-Do not turn food into workout information.
-Do not turn workout information into food.
-Do not invent missing information.
-
-Entry date:
+ENTRY DATE:
 ${today}
 
-User ID:
+USER ID:
 ${userId || ""}
 
-User note:
+USER NOTE:
 ${note}
 `;
+
+    const schema = {
+      type: "object",
+      properties: {
+        type: {
+          type: "string",
+          enum: [
+            "food",
+            "workout",
+            "wellness",
+            "both",
+            "food_workout_wellness",
+            "food_wellness",
+            "workout_wellness",
+            "none"
+          ]
+        },
+
+        foods: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              meal_time: {
+                type: "string"
+              },
+              meal_type: {
+                type: "string"
+              },
+              food_item: {
+                type: "string"
+              },
+              quantity_grams: {
+                type: ["number", "null"]
+              },
+              calories: {
+                type: ["number", "null"]
+              },
+              protein: {
+                type: ["number", "null"]
+              },
+              carbs: {
+                type: ["number", "null"]
+              },
+              fat: {
+                type: ["number", "null"]
+              },
+              fiber: {
+                type: ["number", "null"]
+              },
+              notes: {
+                type: "string"
+              }
+            },
+            required: [
+              "meal_time",
+              "meal_type",
+              "food_item",
+              "quantity_grams",
+              "calories",
+              "protein",
+              "carbs",
+              "fat",
+              "fiber",
+              "notes"
+            ]
+          }
+        },
+
+        workouts: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              exercise: {
+                type: "string"
+              },
+              muscle_group: {
+                type: "string"
+              },
+              set_number: {
+                type: ["number", "null"]
+              },
+              reps_completed: {
+                type: ["number", "null"]
+              },
+              weight_value: {
+                type: ["number", "null"]
+              },
+              weight_type: {
+                type: "string"
+              },
+              set_result: {
+                type: "string"
+              },
+              duration_mins: {
+                type: ["number", "null"]
+              },
+              notes: {
+                type: "string"
+              },
+              estimated_workout_calories: {
+                type: ["number", "null"]
+              }
+            },
+            required: [
+              "exercise",
+              "muscle_group",
+              "set_number",
+              "reps_completed",
+              "weight_value",
+              "weight_type",
+              "set_result",
+              "duration_mins",
+              "notes",
+              "estimated_workout_calories"
+            ]
+          }
+        },
+
+        wellness: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              weight: {
+                type: ["number", "null"]
+              },
+              water: {
+                type: ["number", "null"]
+              },
+              sleep: {
+                type: ["number", "null"]
+              },
+              energy: {
+                type: ["number", "null"]
+              },
+              mood: {
+                type: "string"
+              },
+              stress: {
+                type: ["number", "null"]
+              },
+              hunger: {
+                type: ["number", "null"]
+              },
+              cravings: {
+                type: "string"
+              },
+              soreness: {
+                type: "string"
+              },
+              steps: {
+                type: ["number", "null"]
+              },
+              period_day: {
+                type: ["number", "null"]
+              },
+              period_flow: {
+                type: "string"
+              },
+              period_symptoms: {
+                type: "string"
+              },
+              notes: {
+                type: "string"
+              }
+            },
+            required: [
+              "weight",
+              "water",
+              "sleep",
+              "energy",
+              "mood",
+              "stress",
+              "hunger",
+              "cravings",
+              "soreness",
+              "steps",
+              "period_day",
+              "period_flow",
+              "period_symptoms",
+              "notes"
+            ]
+          }
+        }
+      },
+
+      required: [
+        "type",
+        "foods",
+        "workouts",
+        "wellness"
+      ]
+    };
 
     const models = [
       "gemini-3.8-flash",
@@ -139,9 +274,14 @@ ${note}
     let data = null;
 
     for (const model of models) {
+
       const maxAttempts = 3;
 
-      for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      for (
+        let attempt = 1;
+        attempt <= maxAttempts;
+        attempt++
+      ) {
 
         response = await fetch(
           `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
@@ -150,7 +290,8 @@ ${note}
 
             headers: {
               "Content-Type": "application/json",
-              "x-goog-api-key": process.env.GEMINI_API_KEY
+              "x-goog-api-key":
+                process.env.GEMINI_API_KEY
             },
 
             body: JSON.stringify({
@@ -162,7 +303,15 @@ ${note}
                     }
                   ]
                 }
-              ]
+              ],
+
+              generationConfig: {
+                responseMimeType:
+                  "application/json",
+
+                responseSchema:
+                  schema
+              }
             })
           }
         );
@@ -170,7 +319,9 @@ ${note}
         data = await response.json();
 
         if (response.ok) {
-          console.log(`Gemini succeeded using ${model}`);
+          console.log(
+            `Gemini succeeded using ${model}`
+          );
           break;
         }
 
@@ -179,20 +330,26 @@ ${note}
           response.status === 429 ||
           response.status === 408
         ) {
+
           if (attempt < maxAttempts) {
 
             const delay =
               Math.pow(2, attempt - 1) * 1000;
 
-            await new Promise((resolve) =>
-              setTimeout(resolve, delay)
+            await new Promise(
+              (resolve) =>
+                setTimeout(resolve, delay)
             );
 
             continue;
           }
         }
 
-        console.error(`${model} error:`, data);
+        console.error(
+          `${model} error:`,
+          data
+        );
+
         break;
       }
 
@@ -208,14 +365,8 @@ ${note}
       });
     }
 
-    let text =
+    const text =
       data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
-
-    text = text
-      .replace(/^```json\s*/i, "")
-      .replace(/^```\s*/i, "")
-      .replace(/\s*```$/i, "")
-      .trim();
 
     let result;
 
@@ -249,8 +400,65 @@ ${note}
         ? result.workouts
         : [];
 
+    const wellness =
+      Array.isArray(result.wellness)
+        ? result.wellness
+        : [];
+
     const type =
       result.type || "none";
+
+
+    // -----------------------------------------
+    // FOOD NORMALIZATION
+    // -----------------------------------------
+
+    foods.forEach(function(food) {
+
+      if (
+        food.fiber === null ||
+        food.fiber === undefined ||
+        food.fiber === ""
+      ) {
+
+        food.fiber = 0;
+
+        food.notes =
+          food.notes
+            ? food.notes +
+              " Fiber estimated as 0 where negligible."
+            : "Fiber estimated as 0 where negligible.";
+      }
+    });
+
+
+    // -----------------------------------------
+    // WORKOUT NORMALIZATION
+    // -----------------------------------------
+
+    workouts.forEach(function(workout) {
+
+      if (
+        workout.estimated_workout_calories ===
+          null ||
+        workout.estimated_workout_calories ===
+          undefined ||
+        workout.estimated_workout_calories === ""
+      ) {
+
+        // Keep the field explicit rather than
+        // silently pretending an exact calorie burn.
+
+        workout.estimated_workout_calories = 0;
+
+        workout.notes =
+          workout.notes
+            ? workout.notes +
+              " Workout calorie estimate unavailable."
+            : "Workout calorie estimate unavailable.";
+      }
+    });
+
 
     console.log(
       "Detected type:",
@@ -267,20 +475,35 @@ ${note}
       JSON.stringify(workouts)
     );
 
+    console.log(
+      "Wellness:",
+      JSON.stringify(wellness)
+    );
+
+
     if (
       foods.length === 0 &&
-      workouts.length === 0
+      workouts.length === 0 &&
+      wellness.length === 0
     ) {
+
       return res.status(400).json({
         error:
-          "Luna could not detect food or workout information.",
+          "Luna could not detect food, workout, or wellness information.",
+
         debug: {
           type: type,
           foods: foods,
-          workouts: workouts
+          workouts: workouts,
+          wellness: wellness
         }
       });
     }
+
+
+    // -----------------------------------------
+    // GOOGLE SHEETS
+    // -----------------------------------------
 
     const sheetsResponse = await fetch(
       process.env.GOOGLE_SHEETS_WEBHOOK_URL,
@@ -292,23 +515,32 @@ ${note}
         },
 
         body: JSON.stringify({
+
           token:
             process.env.LUNA_SHEETS_SECRET,
 
-          date: today,
+          date:
+            today,
 
           userId:
             userId || "",
 
-          foods: foods,
+          foods:
+            foods,
 
-          workouts: workouts
+          workouts:
+            workouts,
+
+          wellness:
+            wellness
         })
       }
     );
 
+
     const sheetsText =
       await sheetsResponse.text();
+
 
     console.log(
       "Google Sheets HTTP status:",
@@ -320,16 +552,21 @@ ${note}
       sheetsText
     );
 
+
     let sheetsData;
 
     try {
+
       sheetsData =
         JSON.parse(sheetsText);
+
     } catch {
 
       return res.status(500).json({
+
         error:
           "Google Sheets did not return valid JSON.",
+
         debug: {
           httpStatus:
             sheetsResponse.status,
@@ -337,27 +574,35 @@ ${note}
           response:
             sheetsText.substring(0, 500)
         }
+
       });
     }
+
 
     if (
       !sheetsResponse.ok ||
       !sheetsData.success
     ) {
+
       return res.status(500).json({
+
         error:
           sheetsData.error ||
           "Google Sheets rejected the request.",
 
         debug: {
+
           httpStatus:
             sheetsResponse.status,
 
           sheetsResponse:
             sheetsData
+
         }
+
       });
     }
+
 
     return res.status(200).json({
 
@@ -369,6 +614,8 @@ ${note}
 
       workouts: workouts,
 
+      wellness: wellness,
+
       rowsAdded:
         sheetsData.rowsAdded || 0,
 
@@ -376,8 +623,13 @@ ${note}
         sheetsData.foodRowsAdded || 0,
 
       workoutRowsAdded:
-        sheetsData.workoutRowsAdded || 0
+        sheetsData.workoutRowsAdded || 0,
+
+      wellnessRowsAdded:
+        sheetsData.wellnessRowsAdded || 0
+
     });
+
 
   } catch (error) {
 
@@ -387,6 +639,7 @@ ${note}
     );
 
     return res.status(500).json({
+
       error:
         "Something went wrong while processing your entry.",
 
@@ -394,6 +647,7 @@ ${note}
         message:
           error.message
       }
+
     });
   }
 }
