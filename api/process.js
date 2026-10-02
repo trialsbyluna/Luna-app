@@ -37,36 +37,82 @@ export default async function handler(req, res) {
     const prompt = `
 You are Luna, an AI health and nutrition tracking assistant.
 
-Analyze the user's note and extract FOOD information only.
+Analyze the user's note and determine whether it contains:
+- FOOD information
+- WORKOUT information
+- BOTH
+- NEITHER
 
 Return ONLY valid JSON in this exact format:
 
 {
-  "foods": [
-    {
-      "meal_time": "",
-      "meal_type": "",
-      "food_item": "",
-      "quantity_grams": null,
-      "calories": null,
-      "protein": null,
-      "carbs": null,
-      "fat": null,
-      "fiber": null,
-      "notes": ""
-    }
-  ]
+  "type": "food",
+  "foods": [],
+  "workouts": []
 }
 
-Rules:
+The "type" must be exactly one of:
+"food"
+"workout"
+"both"
+"none"
+
+FOOD FORMAT:
+
+{
+  "meal_time": "",
+  "meal_type": "",
+  "food_item": "",
+  "quantity_grams": null,
+  "calories": null,
+  "protein": null,
+  "carbs": null,
+  "fat": null,
+  "fiber": null,
+  "notes": ""
+}
+
+WORKOUT FORMAT:
+
+{
+  "exercise": "",
+  "muscle_group": "",
+  "set_number": null,
+  "reps_completed": null,
+  "weight_value": null,
+  "weight_type": "",
+  "set_result": "",
+  "duration_mins": null,
+  "notes": "",
+  "estimated_workout_calories": null
+}
+
+FOOD RULES:
+
 1. Extract ALL food items mentioned.
 2. Create ONE object per food item.
 3. Estimate nutrition using common nutritional averages.
 4. Keep food names short.
 5. Infer meal type if mentioned.
 6. If no food is mentioned, return an empty foods array.
-7. Return ONLY valid JSON.
-8. Do not provide explanations.
+7. Do not invent food that was not mentioned.
+
+WORKOUT RULES:
+
+1. Extract ALL workout information mentioned.
+2. Create ONE object per workout set when individual sets are described.
+3. If multiple sets are explicitly mentioned, create one object per set.
+4. If the number of sets is not given, do not invent sets.
+5. Do not invent reps, weights, exercises, or muscle groups.
+6. If only workout duration is given, record the duration and leave unknown fields blank.
+7. Estimate workout calories only when a reasonable estimate can be made from the information given.
+8. If no workout is mentioned, return an empty workouts array.
+
+IMPORTANT:
+
+Do not turn food into a workout.
+Do not turn a workout into food.
+Do not invent missing information.
 
 Entry date:
 ${today}
@@ -178,13 +224,17 @@ ${note}
       ? result.foods
       : [];
 
-    console.log("Gemini foods:", JSON.stringify(foods));
+    const workouts = Array.isArray(result.workouts)
+      ? result.workouts
+      : [];
 
-    if (foods.length === 0) {
+    const type = result.type || "none";
+
+    if (foods.length === 0 && workouts.length === 0) {
       return res.status(400).json({
-        error: "Gemini did not detect any food items.",
+        error: "Luna could not detect food or workout information.",
         debug: {
-          foodsReceivedFromGemini: 0,
+          type: type,
           geminiResponse: result
         }
       });
@@ -201,15 +251,23 @@ ${note}
           token: process.env.LUNA_SHEETS_SECRET,
           date: today,
           userId: userId || "",
-          foods: foods
+          foods: foods,
+          workouts: workouts
         })
       }
     );
 
     const sheetsText = await sheetsResponse.text();
 
-    console.log("Google Sheets HTTP status:", sheetsResponse.status);
-    console.log("Google Sheets response:", sheetsText);
+    console.log(
+      "Google Sheets HTTP status:",
+      sheetsResponse.status
+    );
+
+    console.log(
+      "Google Sheets response:",
+      sheetsText
+    );
 
     let sheetsData;
 
@@ -227,30 +285,24 @@ ${note}
 
     if (!sheetsResponse.ok || !sheetsData.success) {
       return res.status(500).json({
-        error: sheetsData.error || "Google Sheets rejected the request.",
+        error:
+          sheetsData.error ||
+          "Google Sheets rejected the request.",
         debug: {
           httpStatus: sheetsResponse.status,
-          sheetsResponse: sheetsData,
-          foodsSent: foods.length
-        }
-      });
-    }
-
-    if (!sheetsData.rowsAdded || sheetsData.rowsAdded === 0) {
-      return res.status(500).json({
-        error: "Google Sheets reported that zero rows were added.",
-        debug: {
-          sheetsResponse: sheetsData,
-          foodsSent: foods.length
+          sheetsResponse: sheetsData
         }
       });
     }
 
     return res.status(200).json({
       success: true,
-      message: "Food processed and saved successfully.",
+      type: type,
       foods: foods,
-      rowsAdded: sheetsData.rowsAdded
+      workouts: workouts,
+      rowsAdded: sheetsData.rowsAdded || 0,
+      foodRowsAdded: sheetsData.foodRowsAdded || 0,
+      workoutRowsAdded: sheetsData.workoutRowsAdded || 0
     });
 
   } catch (error) {
