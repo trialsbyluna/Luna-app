@@ -127,10 +127,6 @@ ${note}
           if (attempt < maxAttempts) {
             const delay = Math.pow(2, attempt - 1) * 1000;
 
-            console.log(
-              `${model} returned ${response.status}. Retrying in ${delay}ms...`
-            );
-
             await new Promise((resolve) =>
               setTimeout(resolve, delay)
             );
@@ -152,8 +148,7 @@ ${note}
       console.error("All Gemini models failed:", data);
 
       return res.status(503).json({
-        error:
-          "Gemini is temporarily busy. Please try again in a moment."
+        error: "Gemini is temporarily busy. Please try again in a moment."
       });
     }
 
@@ -179,6 +174,22 @@ ${note}
       });
     }
 
+    const foods = Array.isArray(result.foods)
+      ? result.foods
+      : [];
+
+    console.log("Gemini foods:", JSON.stringify(foods));
+
+    if (foods.length === 0) {
+      return res.status(400).json({
+        error: "Gemini did not detect any food items.",
+        debug: {
+          foodsReceivedFromGemini: 0,
+          geminiResponse: result
+        }
+      });
+    }
+
     const sheetsResponse = await fetch(
       process.env.GOOGLE_SHEETS_WEBHOOK_URL,
       {
@@ -190,49 +201,66 @@ ${note}
           token: process.env.LUNA_SHEETS_SECRET,
           date: today,
           userId: userId || "",
-          foods: result.foods || []
+          foods: foods
         })
       }
     );
 
     const sheetsText = await sheetsResponse.text();
 
+    console.log("Google Sheets HTTP status:", sheetsResponse.status);
+    console.log("Google Sheets response:", sheetsText);
+
     let sheetsData;
 
     try {
       sheetsData = JSON.parse(sheetsText);
     } catch {
-      console.error(
-        "Google Sheets returned unexpected response:",
-        sheetsText
-      );
-
       return res.status(500).json({
-        error: "Google Sheets returned an unexpected response."
+        error: "Google Sheets did not return valid JSON.",
+        debug: {
+          httpStatus: sheetsResponse.status,
+          response: sheetsText.substring(0, 500)
+        }
       });
     }
 
     if (!sheetsResponse.ok || !sheetsData.success) {
-      console.error("Google Sheets error:", sheetsData);
-
       return res.status(500).json({
-        error:
-          "Food was processed but could not be saved to Google Sheets."
+        error: sheetsData.error || "Google Sheets rejected the request.",
+        debug: {
+          httpStatus: sheetsResponse.status,
+          sheetsResponse: sheetsData,
+          foodsSent: foods.length
+        }
+      });
+    }
+
+    if (!sheetsData.rowsAdded || sheetsData.rowsAdded === 0) {
+      return res.status(500).json({
+        error: "Google Sheets reported that zero rows were added.",
+        debug: {
+          sheetsResponse: sheetsData,
+          foodsSent: foods.length
+        }
       });
     }
 
     return res.status(200).json({
       success: true,
       message: "Food processed and saved successfully.",
-      foods: result.foods || [],
-      rowsAdded: sheetsData.rowsAdded || 0
+      foods: foods,
+      rowsAdded: sheetsData.rowsAdded
     });
 
   } catch (error) {
     console.error("Server error:", error);
 
     return res.status(500).json({
-      error: "Something went wrong while processing your entry."
+      error: "Something went wrong while processing your entry.",
+      debug: {
+        message: error.message
+      }
     });
   }
 }
