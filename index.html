@@ -99,27 +99,23 @@
       font-size: 20px;
     }
 
-    .food-row {
-      display: flex;
-      justify-content: space-between;
-      gap: 15px;
+    .row {
       padding: 12px 0;
       border-bottom: 1px solid #ddd;
     }
 
-    .food-name {
+    .row:last-child {
+      border-bottom: none;
+    }
+
+    .row-title {
       font-weight: bold;
     }
 
-    .food-details {
+    .row-details {
       color: #666;
       font-size: 14px;
       margin-top: 4px;
-    }
-
-    .calories {
-      font-weight: bold;
-      white-space: nowrap;
     }
 
     .total {
@@ -128,6 +124,15 @@
       margin-top: 18px;
       font-size: 18px;
       font-weight: bold;
+    }
+
+    .debug {
+      margin-top: 15px;
+      padding: 12px;
+      background: #fff;
+      border-radius: 8px;
+      font-size: 13px;
+      color: #555;
     }
 
     .hidden {
@@ -160,7 +165,7 @@
 
       <textarea
         id="note"
-        placeholder="e.g. I had two eggs and toast for breakfast"
+        placeholder="e.g. I did 3 sets of squats, 10 reps each, with 40 kg"
       ></textarea>
 
       <button
@@ -178,7 +183,9 @@
 
   </div>
 
+
   <script>
+
     async function submitEntry() {
 
       const userId =
@@ -196,7 +203,9 @@
       const button =
         document.getElementById("submitButton");
 
+
       if (!userId || !note) {
+
         message.textContent =
           "Please enter your User ID and note.";
 
@@ -205,6 +214,7 @@
         return;
       }
 
+
       message.textContent =
         "Luna is thinking...";
 
@@ -212,39 +222,59 @@
 
       button.disabled = true;
 
+
       try {
 
-        const response = await fetch("/api/process", {
-          method: "POST",
+        const response =
+          await fetch("/api/process", {
 
-          headers: {
-            "Content-Type": "application/json"
-          },
+            method: "POST",
 
-          body: JSON.stringify({
-            userId: userId,
-            note: note
-          })
-        });
+            headers: {
+              "Content-Type": "application/json"
+            },
 
-        const data = await response.json();
+            body: JSON.stringify({
+              userId: userId,
+              note: note
+            })
+
+          });
+
+
+        const data =
+          await response.json();
+
+
+        console.log(
+          "Luna response:",
+          data
+        );
+
 
         if (!response.ok) {
 
           message.textContent =
-            data.error || "Something went wrong.";
+            data.error ||
+            "Something went wrong.";
+
+          showDebug(data);
 
           button.disabled = false;
 
           return;
         }
 
+
         message.textContent =
           "Logged successfully 🎉";
 
-        displayFoodResult(data.foods || []);
+
+        displayResult(data);
+
 
         button.disabled = false;
+
 
       } catch (error) {
 
@@ -258,70 +288,226 @@
     }
 
 
-    function displayFoodResult(foods) {
+    function displayResult(data) {
 
       const result =
         document.getElementById("result");
 
-      if (!foods.length) {
 
-        result.innerHTML =
-          "<h2>No food items detected.</h2>";
+      const type =
+        data.type || "unknown";
 
-        result.classList.remove("hidden");
 
-        return;
-      }
+      const foods =
+        Array.isArray(data.foods)
+          ? data.foods
+          : [];
 
-      let totalCalories = 0;
 
-      let html =
-        "<h2>Here's what Luna logged</h2>";
+      const workouts =
+        Array.isArray(data.workouts)
+          ? data.workouts
+          : [];
 
-      foods.forEach(function(food) {
 
-        const calories =
-          Number(food.calories) || 0;
+      let html = "";
 
-        totalCalories += calories;
 
-        const quantity =
-          food.quantity_grams
-            ? food.quantity_grams + "g"
-            : "";
+      // FOOD RESULT
 
-        html += `
-          <div class="food-row">
+      if (foods.length > 0) {
 
-            <div>
-              <div class="food-name">
+        let totalCalories = 0;
+
+        html +=
+          "<h2>Here's what Luna logged</h2>";
+
+
+        foods.forEach(function(food) {
+
+          const calories =
+            Number(food.calories) || 0;
+
+          totalCalories += calories;
+
+
+          html += `
+            <div class="row">
+
+              <div class="row-title">
                 ${escapeHtml(food.food_item || "Food")}
               </div>
 
-              <div class="food-details">
-                ${escapeHtml(quantity)}
-                ${food.meal_type ? " · " + escapeHtml(food.meal_type) : ""}
+              <div class="row-details">
+                ${escapeHtml(
+                  food.quantity_grams
+                    ? food.quantity_grams + "g"
+                    : ""
+                )}
+
+                ${
+                  food.meal_type
+                    ? " · " + escapeHtml(food.meal_type)
+                    : ""
+                }
+
+                · ${calories} kcal
               </div>
-            </div>
 
-            <div class="calories">
-              ${calories} kcal
             </div>
+          `;
+        });
 
+
+        html += `
+          <div class="total">
+            <span>Total</span>
+            <span>${totalCalories} kcal</span>
           </div>
         `;
-      });
+      }
+
+
+      // WORKOUT RESULT
+
+      if (workouts.length > 0) {
+
+        if (foods.length === 0) {
+
+          html +=
+            "<h2>Here's what Luna logged</h2>";
+        }
+
+
+        workouts.forEach(function(workout) {
+
+          let details = [];
+
+
+          if (workout.set_number) {
+
+            details.push(
+              "Set " +
+              workout.set_number
+            );
+          }
+
+
+          if (workout.reps_completed) {
+
+            details.push(
+              workout.reps_completed +
+              " reps"
+            );
+          }
+
+
+          if (workout.weight_value) {
+
+            details.push(
+              workout.weight_value +
+              " " +
+              (workout.weight_type || "")
+            );
+          }
+
+
+          if (workout.duration_mins) {
+
+            details.push(
+              workout.duration_mins +
+              " min"
+            );
+          }
+
+
+          html += `
+            <div class="row">
+
+              <div class="row-title">
+                ${escapeHtml(
+                  workout.exercise ||
+                  "Workout"
+                )}
+              </div>
+
+              <div class="row-details">
+                ${escapeHtml(
+                  details.join(" · ")
+                )}
+              </div>
+
+            </div>
+          `;
+        });
+
+
+        html += `
+          <div class="total">
+            <span>Workout rows added</span>
+            <span>
+              ${data.workoutRowsAdded || 0}
+            </span>
+          </div>
+        `;
+      }
+
+
+      // NOTHING DETECTED
+
+      if (
+        foods.length === 0 &&
+        workouts.length === 0
+      ) {
+
+        html +=
+          "<h2>No food or workout details returned.</h2>";
+      }
+
+
+      // DEBUG INFORMATION
 
       html += `
-        <div class="total">
-          <span>Total</span>
-          <span>${totalCalories} kcal</span>
+        <div class="debug">
+          <strong>Processing details</strong><br>
+          Type detected: ${escapeHtml(type)}<br>
+          Food items: ${foods.length}<br>
+          Workout items: ${workouts.length}<br>
+          Food rows added: ${data.foodRowsAdded || 0}<br>
+          Workout rows added: ${data.workoutRowsAdded || 0}<br>
+          Total rows added: ${data.rowsAdded || 0}
         </div>
       `;
 
-      result.innerHTML = html;
 
-      result.classList.remove("hidden");
+      result.innerHTML =
+        html;
+
+      result.classList.remove(
+        "hidden"
+      );
+    }
+
+
+    function showDebug(data) {
+
+      const result =
+        document.getElementById("result");
+
+
+      result.innerHTML = `
+        <div class="debug">
+          <strong>Diagnostic information</strong>
+          <pre>${escapeHtml(
+            JSON.stringify(data, null, 2)
+          )}</pre>
+        </div>
+      `;
+
+
+      result.classList.remove(
+        "hidden"
+      );
     }
 
 
@@ -334,6 +520,7 @@
         .replace(/"/g, "&quot;")
         .replace(/'/g, "&#039;");
     }
+
   </script>
 
 </body>
