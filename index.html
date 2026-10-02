@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
   <title>Luna</title>
 
   <style>
@@ -37,7 +38,7 @@
       background: white;
       border-radius: 16px;
       padding: 25px;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.06);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
     }
 
     label {
@@ -76,9 +77,61 @@
       opacity: 0.9;
     }
 
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
     .message {
       margin-top: 20px;
       color: #666;
+    }
+
+    .result {
+      margin-top: 25px;
+      background: #f7f7f7;
+      border-radius: 12px;
+      padding: 20px;
+    }
+
+    .result h2 {
+      margin-top: 0;
+      font-size: 20px;
+    }
+
+    .food-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 15px;
+      padding: 12px 0;
+      border-bottom: 1px solid #ddd;
+    }
+
+    .food-name {
+      font-weight: bold;
+    }
+
+    .food-details {
+      color: #666;
+      font-size: 14px;
+      margin-top: 4px;
+    }
+
+    .calories {
+      font-weight: bold;
+      white-space: nowrap;
+    }
+
+    .total {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 18px;
+      font-size: 18px;
+      font-weight: bold;
+    }
+
+    .hidden {
+      display: none;
     }
   </style>
 </head>
@@ -110,11 +163,16 @@
         placeholder="e.g. I had two eggs and toast for breakfast"
       ></textarea>
 
-      <button onclick="submitEntry()">
+      <button
+        id="submitButton"
+        onclick="submitEntry()"
+      >
         Send to Luna
       </button>
 
       <div id="message" class="message"></div>
+
+      <div id="result" class="result hidden"></div>
 
     </div>
 
@@ -122,23 +180,47 @@
 
   <script>
     async function submitEntry() {
-      const userId = document.getElementById("userId").value.trim();
-      const note = document.getElementById("note").value.trim();
-      const message = document.getElementById("message");
+
+      const userId =
+        document.getElementById("userId").value.trim();
+
+      const note =
+        document.getElementById("note").value.trim();
+
+      const message =
+        document.getElementById("message");
+
+      const result =
+        document.getElementById("result");
+
+      const button =
+        document.getElementById("submitButton");
 
       if (!userId || !note) {
-        message.textContent = "Please enter your User ID and note.";
+        message.textContent =
+          "Please enter your User ID and note.";
+
+        result.classList.add("hidden");
+
         return;
       }
 
-      message.textContent = "Luna is thinking...";
+      message.textContent =
+        "Luna is thinking...";
+
+      result.classList.add("hidden");
+
+      button.disabled = true;
 
       try {
+
         const response = await fetch("/api/process", {
           method: "POST",
+
           headers: {
             "Content-Type": "application/json"
           },
+
           body: JSON.stringify({
             userId: userId,
             note: note
@@ -148,22 +230,109 @@
         const data = await response.json();
 
         if (!response.ok) {
+
           message.textContent =
             data.error || "Something went wrong.";
+
+          button.disabled = false;
+
           return;
         }
 
         message.textContent =
-          "Luna processed your entry successfully.";
+          "Logged successfully 🎉";
 
-        console.log("Luna result:", data);
+        displayFoodResult(data.foods || []);
+
+        button.disabled = false;
 
       } catch (error) {
+
         console.error(error);
 
         message.textContent =
           "Could not connect to Luna. Please try again.";
+
+        button.disabled = false;
       }
+    }
+
+
+    function displayFoodResult(foods) {
+
+      const result =
+        document.getElementById("result");
+
+      if (!foods.length) {
+
+        result.innerHTML =
+          "<h2>No food items detected.</h2>";
+
+        result.classList.remove("hidden");
+
+        return;
+      }
+
+      let totalCalories = 0;
+
+      let html =
+        "<h2>Here's what Luna logged</h2>";
+
+      foods.forEach(function(food) {
+
+        const calories =
+          Number(food.calories) || 0;
+
+        totalCalories += calories;
+
+        const quantity =
+          food.quantity_grams
+            ? food.quantity_grams + "g"
+            : "";
+
+        html += `
+          <div class="food-row">
+
+            <div>
+              <div class="food-name">
+                ${escapeHtml(food.food_item || "Food")}
+              </div>
+
+              <div class="food-details">
+                ${escapeHtml(quantity)}
+                ${food.meal_type ? " · " + escapeHtml(food.meal_type) : ""}
+              </div>
+            </div>
+
+            <div class="calories">
+              ${calories} kcal
+            </div>
+
+          </div>
+        `;
+      });
+
+      html += `
+        <div class="total">
+          <span>Total</span>
+          <span>${totalCalories} kcal</span>
+        </div>
+      `;
+
+      result.innerHTML = html;
+
+      result.classList.remove("hidden");
+    }
+
+
+    function escapeHtml(value) {
+
+      return String(value)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
     }
   </script>
 
