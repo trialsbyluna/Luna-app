@@ -1,17 +1,23 @@
 export default async function handler(req, res) {
   if (req.method !== "POST") {
-    return res.status(405).json({ error: "Method not allowed" });
+    return res.status(405).json({
+      error: "Method not allowed"
+    });
   }
 
   try {
     const { userId, note } = req.body || {};
 
     if (!note || !note.trim()) {
-      return res.status(400).json({ error: "Please enter what happened." });
+      return res.status(400).json({
+        error: "Please enter what happened."
+      });
     }
 
     if (!process.env.GEMINI_API_KEY) {
-      return res.status(500).json({ error: "Gemini API key is not configured." });
+      return res.status(500).json({
+        error: "Gemini API key is not configured."
+      });
     }
 
     const prompt = `
@@ -60,34 +66,70 @@ User note:
 ${note}
 `;
 
-    const response = await fetch(
-      "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-goog-api-key": process.env.GEMINI_API_KEY
-        },
-        body: JSON.stringify({
-          contents: [
-            {
-              parts: [
-                {
-                  text: prompt
-                }
-              ]
-            }
-          ]
-        })
+    const maxAttempts = 3;
+    let response;
+    let data;
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      response = await fetch(
+        "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-goog-api-key": process.env.GEMINI_API_KEY
+          },
+          body: JSON.stringify({
+            contents: [
+              {
+                parts: [
+                  {
+                    text: prompt
+                  }
+                ]
+              }
+            ]
+          })
+        }
+      );
+
+      data = await response.json();
+
+      // Successful response
+      if (response.ok) {
+        break;
       }
-    );
 
-    const data = await response.json();
+      // Retry temporary Gemini errors
+      if (response.status === 503 || response.status === 429) {
+        if (attempt < maxAttempts) {
+          const delay = Math.pow(2, attempt - 1) * 1000;
+          console.log(
+            `Gemini temporary error ${response.status}. Retrying in ${delay}ms...`
+          );
 
-    if (!response.ok) {
+          await new Promise((resolve) =>
+            setTimeout(resolve, delay)
+          );
+
+          continue;
+        }
+      }
+
+      // Non-retryable error
       console.error("Gemini error:", data);
+
       return res.status(500).json({
         error: "Gemini request failed."
+      });
+    }
+
+    if (!response || !response.ok) {
+      console.error("Gemini failed after retries:", data);
+
+      return res.status(503).json({
+        error:
+          "Gemini is temporarily busy. Please try again in a moment."
       });
     }
 
@@ -98,10 +140,12 @@ ${note}
 
     try {
       result = JSON.parse(text);
-    } catch {
+    } catch (parseError) {
+      console.error("JSON parsing error:", parseError);
+      console.error("Gemini returned:", text);
+
       return res.status(500).json({
-        error: "Gemini returned invalid JSON.",
-        raw: text
+        error: "Gemini returned an unexpected response."
       });
     }
 
