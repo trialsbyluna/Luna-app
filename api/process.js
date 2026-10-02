@@ -78,69 +78,78 @@ User note:
 ${note}
 `;
 
-    let response;
-    let data;
+    const models = [
+      "gemini-3.8-flash",
+      "gemini-3.5-flash-lite"
+    ];
 
-    const maxAttempts = 3;
+    let response = null;
+    let data = null;
 
-    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-      response = await fetch(
-        "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "x-goog-api-key": process.env.GEMINI_API_KEY
-          },
-          body: JSON.stringify({
-            contents: [
-              {
-                parts: [
-                  {
-                    text: prompt
-                  }
-                ]
-              }
-            ]
-          })
+    for (const model of models) {
+      const maxAttempts = 3;
+
+      for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        response = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "x-goog-api-key": process.env.GEMINI_API_KEY
+            },
+            body: JSON.stringify({
+              contents: [
+                {
+                  parts: [
+                    {
+                      text: prompt
+                    }
+                  ]
+                }
+              ]
+            })
+          }
+        );
+
+        data = await response.json();
+
+        if (response.ok) {
+          console.log(`Gemini succeeded using ${model}`);
+          break;
         }
-      );
 
-      data = await response.json();
+        if (
+          response.status === 503 ||
+          response.status === 429 ||
+          response.status === 408
+        ) {
+          if (attempt < maxAttempts) {
+            const delay = Math.pow(2, attempt - 1) * 1000;
 
-      if (response.ok) {
+            console.log(
+              `${model} returned ${response.status}. Retrying in ${delay}ms...`
+            );
+
+            await new Promise((resolve) =>
+              setTimeout(resolve, delay)
+            );
+
+            continue;
+          }
+        }
+
+        console.error(`${model} error:`, data);
         break;
       }
 
-      if (
-        response.status === 503 ||
-        response.status === 429 ||
-        response.status === 408
-      ) {
-        if (attempt < maxAttempts) {
-          const delay = Math.pow(2, attempt - 1) * 1000;
-
-          console.log(
-            `Gemini temporary error ${response.status}. Retrying in ${delay}ms...`
-          );
-
-          await new Promise((resolve) =>
-            setTimeout(resolve, delay)
-          );
-
-          continue;
-        }
+      if (response && response.ok) {
+        break;
       }
-
-      console.error("Gemini error:", data);
-
-      return res.status(500).json({
-        error: "Gemini request failed."
-      });
     }
 
     if (!response || !response.ok) {
-      console.error("Gemini failed after retries:", data);
+      console.error("All Gemini models failed:", data);
 
       return res.status(503).json({
         error:
@@ -151,7 +160,6 @@ ${note}
     let text =
       data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
 
-    // Remove accidental Markdown code fences if Gemini returns them.
     text = text
       .replace(/^```json\s*/i, "")
       .replace(/^```\s*/i, "")
@@ -171,7 +179,6 @@ ${note}
       });
     }
 
-    // Send the structured food data to Google Sheets.
     const sheetsResponse = await fetch(
       process.env.GOOGLE_SHEETS_WEBHOOK_URL,
       {
@@ -209,7 +216,8 @@ ${note}
       console.error("Google Sheets error:", sheetsData);
 
       return res.status(500).json({
-        error: "Food was processed but could not be saved to Google Sheets."
+        error:
+          "Food was processed but could not be saved to Google Sheets."
       });
     }
 
