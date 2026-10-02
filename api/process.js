@@ -37,13 +37,17 @@ export default async function handler(req, res) {
     const prompt = `
 You are Luna, an AI health and nutrition tracking assistant.
 
-Analyze the user's note and determine whether it contains:
+Analyze the user's note.
+
+Determine whether it contains:
 - FOOD information
 - WORKOUT information
 - BOTH
 - NEITHER
 
-Return ONLY valid JSON in this exact format:
+Return ONLY valid JSON.
+
+Use exactly this structure:
 
 {
   "type": "food",
@@ -51,13 +55,13 @@ Return ONLY valid JSON in this exact format:
   "workouts": []
 }
 
-The "type" must be exactly one of:
+The "type" must be exactly:
 "food"
 "workout"
 "both"
 "none"
 
-FOOD FORMAT:
+FOOD OBJECT:
 
 {
   "meal_time": "",
@@ -72,7 +76,7 @@ FOOD FORMAT:
   "notes": ""
 }
 
-WORKOUT FORMAT:
+WORKOUT OBJECT:
 
 {
   "exercise": "",
@@ -89,29 +93,31 @@ WORKOUT FORMAT:
 
 FOOD RULES:
 
-1. Extract ALL food items mentioned.
-2. Create ONE object per food item.
-3. Estimate nutrition using common nutritional averages.
-4. Keep food names short.
-5. Infer meal type if mentioned.
-6. If no food is mentioned, return an empty foods array.
-7. Do not invent food that was not mentioned.
+- Extract every food item mentioned.
+- One object per food item.
+- Estimate nutrition using common nutritional averages.
+- Do not invent food items.
+- If there is no food, foods must be [].
 
 WORKOUT RULES:
 
-1. Extract ALL workout information mentioned.
-2. Create ONE object per workout set when individual sets are described.
-3. If multiple sets are explicitly mentioned, create one object per set.
-4. If the number of sets is not given, do not invent sets.
-5. Do not invent reps, weights, exercises, or muscle groups.
-6. If only workout duration is given, record the duration and leave unknown fields blank.
-7. Estimate workout calories only when a reasonable estimate can be made from the information given.
-8. If no workout is mentioned, return an empty workouts array.
+- Extract every workout mentioned.
+- One object per explicitly described set.
+- If the user says "3 sets of squats, 10 reps each, 40 kg",
+  create 3 objects:
+  set 1, set 2, set 3.
+- Do not invent sets.
+- Do not invent reps.
+- Do not invent weight.
+- Do not invent exercises.
+- If only duration is provided, record duration and leave unknown fields blank.
+- Estimate workout calories only when a reasonable estimate is possible.
+- If there is no workout, workouts must be [].
 
 IMPORTANT:
 
-Do not turn food into a workout.
-Do not turn a workout into food.
+Do not turn food into workout information.
+Do not turn workout information into food.
 Do not invent missing information.
 
 Entry date:
@@ -136,14 +142,17 @@ ${note}
       const maxAttempts = 3;
 
       for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+
         response = await fetch(
           `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
           {
             method: "POST",
+
             headers: {
               "Content-Type": "application/json",
               "x-goog-api-key": process.env.GEMINI_API_KEY
             },
+
             body: JSON.stringify({
               contents: [
                 {
@@ -171,7 +180,9 @@ ${note}
           response.status === 408
         ) {
           if (attempt < maxAttempts) {
-            const delay = Math.pow(2, attempt - 1) * 1000;
+
+            const delay =
+              Math.pow(2, attempt - 1) * 1000;
 
             await new Promise((resolve) =>
               setTimeout(resolve, delay)
@@ -191,10 +202,9 @@ ${note}
     }
 
     if (!response || !response.ok) {
-      console.error("All Gemini models failed:", data);
-
       return res.status(503).json({
-        error: "Gemini is temporarily busy. Please try again in a moment."
+        error:
+          "Gemini is temporarily busy. Please try again in a moment."
       });
     }
 
@@ -211,31 +221,63 @@ ${note}
 
     try {
       result = JSON.parse(text);
-    } catch (parseError) {
-      console.error("JSON parsing error:", parseError);
-      console.error("Gemini returned:", text);
+    } catch (error) {
+
+      console.error(
+        "Gemini JSON parsing error:",
+        error
+      );
+
+      console.error(
+        "Gemini returned:",
+        text
+      );
 
       return res.status(500).json({
-        error: "Gemini returned an unexpected response."
+        error:
+          "Gemini returned an unexpected response."
       });
     }
 
-    const foods = Array.isArray(result.foods)
-      ? result.foods
-      : [];
+    const foods =
+      Array.isArray(result.foods)
+        ? result.foods
+        : [];
 
-    const workouts = Array.isArray(result.workouts)
-      ? result.workouts
-      : [];
+    const workouts =
+      Array.isArray(result.workouts)
+        ? result.workouts
+        : [];
 
-    const type = result.type || "none";
+    const type =
+      result.type || "none";
 
-    if (foods.length === 0 && workouts.length === 0) {
+    console.log(
+      "Detected type:",
+      type
+    );
+
+    console.log(
+      "Foods:",
+      JSON.stringify(foods)
+    );
+
+    console.log(
+      "Workouts:",
+      JSON.stringify(workouts)
+    );
+
+    if (
+      foods.length === 0 &&
+      workouts.length === 0
+    ) {
       return res.status(400).json({
-        error: "Luna could not detect food or workout information.",
+        error:
+          "Luna could not detect food or workout information.",
         debug: {
           type: type,
-          geminiResponse: result
+          foods: foods,
+          workouts: workouts
         }
       });
     }
@@ -244,20 +286,29 @@ ${note}
       process.env.GOOGLE_SHEETS_WEBHOOK_URL,
       {
         method: "POST",
+
         headers: {
           "Content-Type": "application/json"
         },
+
         body: JSON.stringify({
-          token: process.env.LUNA_SHEETS_SECRET,
+          token:
+            process.env.LUNA_SHEETS_SECRET,
+
           date: today,
-          userId: userId || "",
+
+          userId:
+            userId || "",
+
           foods: foods,
+
           workouts: workouts
         })
       }
     );
 
-    const sheetsText = await sheetsResponse.text();
+    const sheetsText =
+      await sheetsResponse.text();
 
     console.log(
       "Google Sheets HTTP status:",
@@ -272,46 +323,76 @@ ${note}
     let sheetsData;
 
     try {
-      sheetsData = JSON.parse(sheetsText);
+      sheetsData =
+        JSON.parse(sheetsText);
     } catch {
+
       return res.status(500).json({
-        error: "Google Sheets did not return valid JSON.",
+        error:
+          "Google Sheets did not return valid JSON.",
         debug: {
-          httpStatus: sheetsResponse.status,
-          response: sheetsText.substring(0, 500)
+          httpStatus:
+            sheetsResponse.status,
+
+          response:
+            sheetsText.substring(0, 500)
         }
       });
     }
 
-    if (!sheetsResponse.ok || !sheetsData.success) {
+    if (
+      !sheetsResponse.ok ||
+      !sheetsData.success
+    ) {
       return res.status(500).json({
         error:
           sheetsData.error ||
           "Google Sheets rejected the request.",
+
         debug: {
-          httpStatus: sheetsResponse.status,
-          sheetsResponse: sheetsData
+          httpStatus:
+            sheetsResponse.status,
+
+          sheetsResponse:
+            sheetsData
         }
       });
     }
 
     return res.status(200).json({
+
       success: true,
+
       type: type,
+
       foods: foods,
+
       workouts: workouts,
-      rowsAdded: sheetsData.rowsAdded || 0,
-      foodRowsAdded: sheetsData.foodRowsAdded || 0,
-      workoutRowsAdded: sheetsData.workoutRowsAdded || 0
+
+      rowsAdded:
+        sheetsData.rowsAdded || 0,
+
+      foodRowsAdded:
+        sheetsData.foodRowsAdded || 0,
+
+      workoutRowsAdded:
+        sheetsData.workoutRowsAdded || 0
     });
 
   } catch (error) {
-    console.error("Server error:", error);
+
+    console.error(
+      "Server error:",
+      error
+    );
 
     return res.status(500).json({
-      error: "Something went wrong while processing your entry.",
+      error:
+        "Something went wrong while processing your entry.",
+
       debug: {
-        message: error.message
+        message:
+          error.message
       }
     });
   }
