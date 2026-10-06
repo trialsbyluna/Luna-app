@@ -271,6 +271,36 @@
       margin-top: 0;
     }
 
+    .recommendations-card {
+      display: none;
+    }
+
+    .recommendation-section {
+      margin-top: 18px;
+    }
+
+    .recommendation-section h3 {
+      margin-bottom: 8px;
+    }
+
+    .recommendation-list {
+      margin: 0;
+      padding-left: 22px;
+    }
+
+    .recommendation-list li {
+      margin-bottom: 8px;
+      line-height: 1.5;
+    }
+
+    .recommendation-summary {
+      background: #fafafa;
+      border: 1px solid #eee;
+      border-radius: 12px;
+      padding: 16px;
+      line-height: 1.6;
+    }
+
     @media (max-width: 600px) {
 
       .container {
@@ -453,6 +483,43 @@
     </div>
 
 
+    <!-- AI RECOMMENDATIONS -->
+
+    <div
+      id="recommendationsCard"
+      class="card recommendations-card"
+    >
+
+      <div class="day-header">
+
+        <div>
+
+          <h2 style="margin-bottom:4px;">
+            Luna's insights
+          </h2>
+
+          <div class="small">
+            Based on your logged patterns.
+          </div>
+
+        </div>
+
+        <button
+          id="recommendButton"
+          onclick="getRecommendations()"
+        >
+          ✨ Get Luna's insights
+        </button>
+
+      </div>
+
+      <div
+        id="recommendationContent"
+      ></div>
+
+    </div>
+
+
     <!-- NUTRITION -->
 
     <div class="card">
@@ -520,6 +587,8 @@
   let dashboardData = null;
 
   let dashboardRange = 7;
+
+  let recommendationData = null;
 
   let nutritionCaloriesChart = null;
   let nutritionMacrosChart = null;
@@ -740,6 +809,236 @@
 
     status.style.display =
       show ? "block" : "none";
+
+  }
+
+
+  async function getRecommendations() {
+
+    const userId =
+      document
+        .getElementById("userId")
+        .value
+        .trim();
+
+    const button =
+      document.getElementById(
+        "recommendButton"
+      );
+
+    const card =
+      document.getElementById(
+        "recommendationsCard"
+      );
+
+    const content =
+      document.getElementById(
+        "recommendationContent"
+      );
+
+    if (!userId) {
+
+      showStatus(
+        "Please enter a User ID first."
+      );
+
+      return;
+
+    }
+
+    button.disabled = true;
+
+    button.textContent =
+      "Luna is thinking...";
+
+    card.style.display =
+      "block";
+
+    content.innerHTML = `
+      <div class="chart-empty">
+        Looking at your recent patterns...
+      </div>
+    `;
+
+    try {
+
+      const response =
+        await fetch(
+          "/api/recommend",
+          {
+
+            method: "POST",
+
+            headers: {
+              "Content-Type":
+                "application/json"
+            },
+
+            body: JSON.stringify({
+              userId: userId
+            })
+
+          }
+        );
+
+      const data =
+        await response.json();
+
+      if (
+        !response.ok ||
+        !data.success
+      ) {
+
+        throw new Error(
+          data.error ||
+          "Unable to generate insights."
+        );
+
+      }
+
+      recommendationData =
+        data.recommendations;
+
+      renderRecommendations(
+        recommendationData
+      );
+
+      showStatus(
+        "Luna's insights are ready."
+      );
+
+    } catch (error) {
+
+      content.innerHTML = `
+        <div class="chart-empty">
+          ${escapeHtml(
+            error.message ||
+            "Unable to generate insights."
+          )}
+        </div>
+      `;
+
+      showStatus(
+        error.message ||
+        "Unable to generate insights."
+      );
+
+    } finally {
+
+      button.disabled = false;
+
+      button.textContent =
+        "✨ Get Luna's insights";
+
+    }
+
+  }
+
+
+  function renderRecommendations(
+    recommendations
+  ) {
+
+    const content =
+      document.getElementById(
+        "recommendationContent"
+      );
+
+    if (!recommendations) {
+
+      content.innerHTML = `
+        <div class="chart-empty">
+          No recommendations available yet.
+        </div>
+      `;
+
+      return;
+
+    }
+
+    let html = "";
+
+    if (recommendations.summary) {
+
+      html += `
+        <div class="recommendation-section">
+
+          <h3>Summary</h3>
+
+          <div class="recommendation-summary">
+            ${escapeHtml(
+              recommendations.summary
+            )}
+          </div>
+
+        </div>
+      `;
+
+    }
+
+    function addList(
+      title,
+      items
+    ) {
+
+      if (
+        !Array.isArray(items) ||
+        !items.length
+      ) {
+
+        return "";
+
+      }
+
+      return `
+        <div class="recommendation-section">
+
+          <h3>${title}</h3>
+
+          <ul class="recommendation-list">
+
+            ${items
+              .slice(0, 3)
+              .map(
+                item =>
+                  `<li>${escapeHtml(item)}</li>`
+              )
+              .join("")}
+
+          </ul>
+
+        </div>
+      `;
+
+    }
+
+    html += addList(
+      "What you're doing well",
+      recommendations.positives
+    );
+
+    html += addList(
+      "Patterns to notice",
+      recommendations.patterns
+    );
+
+    html += addList(
+      "Suggestions",
+      recommendations.suggestions
+    );
+
+    if (!html) {
+
+      html = `
+        <div class="chart-empty">
+          No recommendations available yet.
+        </div>
+      `;
+
+    }
+
+    content.innerHTML =
+      html;
 
   }
 
