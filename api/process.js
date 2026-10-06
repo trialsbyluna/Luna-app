@@ -35,38 +35,34 @@ export default async function handler(req, res) {
     const today =
       new Date().toISOString().slice(0, 10);
 
+    // -----------------------------------------
+    // EXTRACTION PROMPT
+    // -----------------------------------------
+
     const prompt = `
 You are Luna, an AI health, nutrition, workout, and wellness tracking assistant.
 
-Analyze the user's note.
+Analyze the user's note and extract only information that is actually present.
 
-The note may contain:
-- FOOD
-- WORKOUT
-- WELLNESS
-- any combination of these
-- none of these
+Return ONLY valid JSON matching the supplied schema.
 
-Return ONLY valid JSON.
-
-IMPORTANT GENERAL RULES:
+GENERAL RULES:
 
 - Extract every explicitly mentioned food item.
-- Extract every explicitly described workout set.
+- Extract every explicitly described workout activity.
 - Extract wellness information that is explicitly mentioned.
 - Do not invent events.
-- Do not invent quantities, reps, weights, sleep, water, mood, etc.
+- Do not invent quantities, repetitions, weights, distances, speeds, durations, sleep, water, mood, etc.
 - Nutrition values may be estimated using common nutritional averages.
-- Fiber should be estimated whenever reasonable.
-- If a food has negligible fiber, use 0.
-- Workout calories are approximate estimates, NOT exact measurements.
-- Estimate workout calories when enough information exists.
-- If a workout calorie estimate cannot reasonably be made, use 0.
-- Do not turn food into workout information.
-- Do not turn workout into food information.
-- Do not turn wellness into food or workout information.
+- Preserve useful food-specific details.
+- Preserve useful workout-specific details.
+- Preserve the user's wording for qualitative wellness information.
+- Do not convert qualitative words such as "good", "bad", "mild", "high", or "low" into a numerical score unless the user explicitly gives a numerical score.
+- If a field is not mentioned, use the appropriate empty/zero value defined by the schema.
 
-FOOD:
+-----------------------------------------
+FOOD
+-----------------------------------------
 
 For every food item return:
 
@@ -83,55 +79,220 @@ notes
 
 FOOD RULES:
 
-- Extract every food item mentioned.
-- Create one object per food item.
-- Estimate nutrition using common nutritional averages.
-- Preserve quantities explicitly stated by the user.
-- Do not invent food items.
-- Fiber should be estimated when reasonable.
-- If fiber is negligible, use 0.
-- If no food is present, foods must be [].
+1. Create ONE object per food item.
 
-WORKOUT:
+2. Preserve the specific food identity.
 
-For every explicitly described set return:
+Examples:
+
+"whole wheat bread" must remain "whole wheat bread".
+
+"multigrain bread" must remain "multigrain bread".
+
+"white bread" must remain "white bread".
+
+Do NOT change specific bread types into generic "toast".
+
+3. If the user says "toast" without specifying the bread type, use "toast".
+
+4. Preserve preparation details when explicitly stated.
+
+5. Estimate nutrition using common nutritional averages.
+
+6. Fiber must reflect actual food characteristics.
+
+7. Do NOT invent fiber for foods that naturally contain essentially no fiber.
+
+For example:
+- eggs have essentially 0 g dietary fiber
+- meat has 0 g dietary fiber
+- fish has 0 g dietary fiber
+
+8. If no food exists, foods must be [].
+
+-----------------------------------------
+WORKOUT
+-----------------------------------------
+
+Workout activities fall into two broad categories:
+
+A. STRENGTH / RESISTANCE
+B. CARDIO
+
+-----------------------------------------
+STRENGTH / RESISTANCE
+-----------------------------------------
+
+For each explicitly described set return:
 
 exercise
+activity_type
 muscle_group
 set_number
 reps_completed
 weight_value
 weight_type
+weight_basis
 set_result
 duration_mins
+distance
+speed
+incline
 notes
 estimated_workout_calories
 
-WORKOUT RULES:
+Rules:
 
-- Extract every workout explicitly mentioned.
 - Create one object per explicitly described set.
-- If the user says "3 sets of squats, 10 reps each, with 40 kg",
-  create exactly 3 workout objects:
-  set 1
-  set 2
-  set 3
+- If the user says:
+  "3 sets of squats, 10 reps each at 40 kg"
+  create exactly 3 objects.
 - Do not invent sets.
 - Do not invent reps.
 - Do not invent weight.
-- Do not invent exercise names.
-- Only record duration when the user explicitly states a duration.
-- Never infer duration from the number of sets, reps, exercise type,
-  weight, or any other information.
-- If no duration is explicitly stated, set duration_mins to 0.
-- Estimate workout calories only when a reasonable estimate is possible.
-- Workout calorie values are estimates, not exact measurements.
-- If a reasonable calorie estimate cannot be made, use 0.
-- Do not invent workout information.
+- Do not invent duration.
+- If duration is not explicitly stated, duration_mins = 0.
+- Do not infer duration from sets or reps.
+- If distance, speed, or incline are not relevant, use 0.
+- activity_type must be "strength".
 
-WELLNESS:
+WEIGHT BASIS:
 
-Use one object for wellness information in the note.
+Pay close attention to wording.
+
+Examples:
+
+"5 kg each"
+=> weight_value = 5
+=> weight_type = "kg"
+=> weight_basis = "each"
+
+"5 kg per dumbbell"
+=> weight_basis = "each"
+
+"10 kg total"
+=> weight_value = 10
+=> weight_basis = "total"
+
+"5 kg per side"
+=> weight_value = 5
+=> weight_basis = "per side"
+
+"40 kg" with no indication whether it is total, each, or per side
+=> weight_value = 40
+=> weight_basis = "unknown"
+
+NEVER guess the weight basis.
+
+If the basis is unclear, use "unknown".
+
+-----------------------------------------
+CARDIO
+-----------------------------------------
+
+Cardio must NOT be represented as a strength set.
+
+For cardio return one activity object unless the user explicitly describes multiple separate cardio activities.
+
+Fields:
+
+exercise
+activity_type
+muscle_group
+set_number
+reps_completed
+weight_value
+weight_type
+weight_basis
+set_result
+duration_mins
+distance
+speed
+incline
+notes
+estimated_workout_calories
+
+CARDIO RULES:
+
+- activity_type = "cardio".
+- exercise should identify the activity, such as:
+  walking
+  running
+  cycling
+  swimming
+  treadmill
+  elliptical
+
+- Capture duration ONLY when explicitly stated.
+
+- Capture speed ONLY when explicitly stated.
+
+- Capture distance ONLY when explicitly stated.
+
+- Capture incline ONLY when explicitly stated.
+
+Examples:
+
+"walked for 30 minutes"
+=> duration_mins = 30
+=> speed = 0
+=> distance = 0
+
+"walked 3 km in 30 minutes"
+=> distance = 3
+=> duration_mins = 30
+
+"treadmill for 20 minutes at 6 km/h"
+=> duration_mins = 20
+=> speed = 6
+=> speed unit should be preserved in notes if necessary
+
+"treadmill at 5% incline"
+=> incline = 5
+
+Do NOT invent speed, distance, or incline.
+
+For cardio:
+- set_number = 0
+- reps_completed = 0
+- weight_value = 0
+- weight_type = ""
+- weight_basis = "unknown"
+- set_result = ""
+
+Do not create fake sets for cardio.
+
+-----------------------------------------
+WORKOUT CALORIES
+-----------------------------------------
+
+Workout calorie values are estimates, not measurements.
+
+Most importantly:
+
+Do NOT randomly change the estimate for identical workout descriptions.
+
+Use a consistent approach.
+
+For strength workouts where duration is not explicitly provided:
+
+- Do not pretend that the calorie number is precise.
+- Use a conservative consistent estimate based on the exercise/set description.
+- Identical exercise + reps + weight should produce approximately the same estimate.
+
+For cardio:
+
+- Estimate only when duration is explicitly provided and the activity is reasonably identifiable.
+- Use the same estimation approach for the same activity and duration.
+- If insufficient information exists, use 0.
+
+Never claim workout calories are exact.
+
+-----------------------------------------
+WELLNESS
+-----------------------------------------
+
+Use one wellness object when wellness information exists.
 
 Fields:
 
@@ -152,21 +313,102 @@ notes
 
 WELLNESS RULES:
 
-- Preserve values explicitly stated by the user.
-- Do not invent wellness measurements.
-- If a numeric wellness field is not mentioned, use 0.
-- If a text wellness field is not mentioned, use "".
-- If no wellness information exists, wellness must be [].
+1. Preserve explicit numeric values.
 
-ENTRY DATE:
+Examples:
+
+"energy was 8"
+=> energy = 8
+
+"stress was 3"
+=> stress = 3
+
+"hunger was 4"
+=> hunger = 4
+
+2. Do NOT convert qualitative descriptions into numbers.
+
+Example:
+
+"mood was good"
+=> mood = "good"
+
+NOT:
+mood = 8
+
+Example:
+
+"I have mild soreness"
+=> soreness = "mild soreness"
+
+NOT:
+soreness = 3
+
+3. Preserve qualitative information as text.
+
+4. WATER:
+
+Normalize water to LITERS.
+
+Examples:
+
+"2 L"
+=> water = 2
+
+"2 liters"
+=> water = 2
+
+"500 ml"
+=> water = 0.5
+
+"750 ml"
+=> water = 0.75
+
+"1500 ml"
+=> water = 1.5
+
+Never store milliliters in the water field.
+
+5. Sleep is stored in hours.
+
+Example:
+
+"7.5 hours"
+=> sleep = 7.5
+
+6. Steps should be stored as the actual number.
+
+Example:
+
+"6000 steps"
+=> steps = 6000
+
+7. If a numeric wellness field is not mentioned, use 0.
+
+8. If a text wellness field is not mentioned, use "".
+
+9. If no wellness information exists, wellness must be [].
+
+-----------------------------------------
+ENTRY DATE
+-----------------------------------------
+
 ${today}
 
 USER ID:
+
 ${userId || ""}
 
-USER NOTE:
+-----------------------------------------
+USER NOTE
+-----------------------------------------
+
 ${note}
 `;
+
+    // -----------------------------------------
+    // RESPONSE SCHEMA
+    // -----------------------------------------
 
     const responseSchema = {
       type: "OBJECT",
@@ -264,6 +506,14 @@ ${note}
                 type: "STRING"
               },
 
+              activity_type: {
+                type: "STRING",
+                enum: [
+                  "strength",
+                  "cardio"
+                ]
+              },
+
               muscle_group: {
                 type: "STRING"
               },
@@ -284,11 +534,33 @@ ${note}
                 type: "STRING"
               },
 
+              weight_basis: {
+                type: "STRING",
+                enum: [
+                  "each",
+                  "total",
+                  "per side",
+                  "unknown"
+                ]
+              },
+
               set_result: {
                 type: "STRING"
               },
 
               duration_mins: {
+                type: "NUMBER"
+              },
+
+              distance: {
+                type: "NUMBER"
+              },
+
+              speed: {
+                type: "NUMBER"
+              },
+
+              incline: {
                 type: "NUMBER"
               },
 
@@ -304,13 +576,18 @@ ${note}
 
             required: [
               "exercise",
+              "activity_type",
               "muscle_group",
               "set_number",
               "reps_completed",
               "weight_value",
               "weight_type",
+              "weight_basis",
               "set_result",
               "duration_mins",
+              "distance",
+              "speed",
+              "incline",
               "notes",
               "estimated_workout_calories"
             ]
@@ -412,6 +689,9 @@ ${note}
       ]
     };
 
+    // -----------------------------------------
+    // GEMINI MODELS
+    // -----------------------------------------
 
     const models = [
       "gemini-3.8-flash",
@@ -421,9 +701,8 @@ ${note}
     let response = null;
     let data = null;
 
-
     // -----------------------------------------
-    // GEMINI
+    // GEMINI REQUEST
     // -----------------------------------------
 
     for (const model of models) {
@@ -473,10 +752,8 @@ ${note}
           }
         );
 
-
         data =
           await response.json();
-
 
         if (response.ok) {
 
@@ -487,7 +764,6 @@ ${note}
           break;
 
         }
-
 
         if (
           response.status === 503 ||
@@ -512,7 +788,6 @@ ${note}
           }
         }
 
-
         console.error(
           `${model} error:`,
           data
@@ -521,7 +796,6 @@ ${note}
         break;
       }
 
-
       if (
         response &&
         response.ok
@@ -529,7 +803,6 @@ ${note}
         break;
       }
     }
-
 
     if (
       !response ||
@@ -545,7 +818,6 @@ ${note}
 
     }
 
-
     // -----------------------------------------
     // PARSE GEMINI RESPONSE
     // -----------------------------------------
@@ -556,9 +828,7 @@ ${note}
         ?.content?.parts?.[0]
         ?.text || "";
 
-
     let result;
-
 
     try {
 
@@ -586,28 +856,23 @@ ${note}
 
     }
 
-
     const foods =
       Array.isArray(result.foods)
         ? result.foods
         : [];
-
 
     const workouts =
       Array.isArray(result.workouts)
         ? result.workouts
         : [];
 
-
     const wellness =
       Array.isArray(result.wellness)
         ? result.wellness
         : [];
 
-
     const type =
       result.type || "none";
-
 
     // -----------------------------------------
     // NORMALIZE FOOD
@@ -624,8 +889,24 @@ ${note}
 
       }
 
-    });
+      if (
+        typeof food.quantity_grams !== "number" ||
+        Number.isNaN(food.quantity_grams)
+      ) {
 
+        food.quantity_grams = 0;
+
+      }
+
+      if (
+        typeof food.notes !== "string"
+      ) {
+
+        food.notes = "";
+
+      }
+
+    });
 
     // -----------------------------------------
     // NORMALIZE WORKOUT
@@ -642,6 +923,32 @@ ${note}
 
       }
 
+      if (
+        typeof workout.distance !== "number" ||
+        Number.isNaN(workout.distance)
+      ) {
+
+        workout.distance = 0;
+
+      }
+
+      if (
+        typeof workout.speed !== "number" ||
+        Number.isNaN(workout.speed)
+      ) {
+
+        workout.speed = 0;
+
+      }
+
+      if (
+        typeof workout.incline !== "number" ||
+        Number.isNaN(workout.incline)
+      ) {
+
+        workout.incline = 0;
+
+      }
 
       if (
         typeof workout.estimated_workout_calories
@@ -655,8 +962,94 @@ ${note}
 
       }
 
-    });
+      if (
+        ![
+          "each",
+          "total",
+          "per side",
+          "unknown"
+        ].includes(workout.weight_basis)
+      ) {
 
+        workout.weight_basis = "unknown";
+
+      }
+
+      if (
+        workout.activity_type !== "cardio"
+      ) {
+
+        workout.activity_type = "strength";
+
+      }
+
+      // Preserve the new workout details inside
+      // the existing Notes column without changing
+      // the Google Sheet structure.
+
+      const detailParts = [];
+
+      if (
+        workout.weight_basis &&
+        workout.weight_basis !== "unknown"
+      ) {
+
+        detailParts.push(
+          `Weight basis: ${workout.weight_basis}`
+        );
+
+      }
+
+      if (
+        workout.activity_type === "cardio"
+      ) {
+
+        if (workout.distance > 0) {
+
+          detailParts.push(
+            `Distance: ${workout.distance}`
+          );
+
+        }
+
+        if (workout.speed > 0) {
+
+          detailParts.push(
+            `Speed: ${workout.speed}`
+          );
+
+        }
+
+        if (workout.incline > 0) {
+
+          detailParts.push(
+            `Incline: ${workout.incline}%`
+          );
+
+        }
+
+      }
+
+      if (detailParts.length > 0) {
+
+        const generatedDetails =
+          detailParts.join(" | ");
+
+        if (workout.notes) {
+
+          workout.notes =
+            `${workout.notes} | ${generatedDetails}`;
+
+        } else {
+
+          workout.notes =
+            generatedDetails;
+
+        }
+
+      }
+
+    });
 
     // -----------------------------------------
     // NORMALIZE WELLNESS
@@ -675,7 +1068,6 @@ ${note}
         "period_day"
       ];
 
-
       numericFields.forEach(function(field) {
 
         if (
@@ -689,6 +1081,23 @@ ${note}
 
       });
 
+      // Safety normalization:
+      // water is ALWAYS stored in liters.
+      //
+      // If the model somehow returns a large
+      // milliliter-style number, convert it.
+      //
+      // Example:
+      // 500 -> 0.5
+      // 1000 -> 1
+      // 1500 -> 1.5
+
+      if (checkin.water > 20) {
+
+        checkin.water =
+          checkin.water / 1000;
+
+      }
 
       const textFields = [
         "mood",
@@ -698,7 +1107,6 @@ ${note}
         "period_symptoms",
         "notes"
       ];
-
 
       textFields.forEach(function(field) {
 
@@ -714,6 +1122,9 @@ ${note}
 
     });
 
+    // -----------------------------------------
+    // LOG EXTRACTION
+    // -----------------------------------------
 
     console.log(
       "Detected type:",
@@ -734,7 +1145,6 @@ ${note}
       "Wellness:",
       JSON.stringify(wellness)
     );
-
 
     if (
       foods.length === 0 &&
@@ -757,7 +1167,6 @@ ${note}
       });
 
     }
-
 
     // -----------------------------------------
     // SEND TO GOOGLE SHEETS
@@ -799,25 +1208,20 @@ ${note}
         }
       );
 
-
     const sheetsText =
       await sheetsResponse.text();
-
 
     console.log(
       "Google Sheets HTTP status:",
       sheetsResponse.status
     );
 
-
     console.log(
       "Google Sheets response:",
       sheetsText
     );
 
-
     let sheetsData;
-
 
     try {
 
@@ -850,7 +1254,6 @@ ${note}
 
     }
 
-
     if (
       !sheetsResponse.ok ||
       !sheetsData.success
@@ -875,7 +1278,6 @@ ${note}
       });
 
     }
-
 
     // -----------------------------------------
     // FINAL RESPONSE
@@ -910,7 +1312,6 @@ ${note}
         sheetsData.wellnessRowsAdded || 0
 
     });
-
 
   } catch (error) {
 
