@@ -36,7 +36,7 @@ export default async function handler(req, res) {
       new Date().toISOString().slice(0, 10);
 
     // -----------------------------------------
-    // EXTRACTION PROMPT
+    // PROMPT
     // -----------------------------------------
 
     const prompt = `
@@ -75,6 +75,34 @@ fat
 fiber
 notes
 
+MEAL TIME VS MEAL TYPE:
+
+meal_type describes the occasion:
+
+breakfast
+lunch
+dinner
+snack
+etc.
+
+meal_time is ONLY the actual clock time if the user explicitly provides one.
+
+Examples:
+
+"At 8:30 AM I had 2 idlis"
+=> meal_time = "08:30"
+=> meal_type = "breakfast"
+
+"I had 2 idlis for breakfast"
+=> meal_time = ""
+=> meal_type = "breakfast"
+
+"Had lunch"
+=> meal_time = ""
+=> meal_type = "lunch"
+
+NEVER put "breakfast", "lunch", "dinner", or "snack" into meal_time.
+
 FOOD RULES:
 
 1. Create ONE object per food item.
@@ -91,34 +119,32 @@ Examples:
 
 Do NOT change specific bread types into generic "toast".
 
-3. If the user says "toast" without specifying the bread type, use "toast".
+3. Preserve preparation details when explicitly stated.
 
-4. Preserve preparation details when explicitly stated.
+4. Estimate nutrition using common nutritional averages.
 
-5. Estimate nutrition using common nutritional averages.
+5. Fiber must reflect actual food characteristics.
 
-6. Fiber must reflect actual food characteristics.
-
-7. Do NOT invent fiber for foods that naturally contain essentially no fiber.
+6. Do not invent fiber for foods that naturally contain essentially no fiber.
 
 For example:
 - eggs have essentially 0 g dietary fiber
 - meat has 0 g dietary fiber
 - fish has 0 g dietary fiber
 
-8. If no food exists, foods must be [].
+7. If no food exists, foods must be [].
 
 -----------------------------------------
 WORKOUT
 -----------------------------------------
 
-Workout activities fall into two broad categories:
+Workout activities fall into:
 
 A. STRENGTH / RESISTANCE
 B. CARDIO
 
 -----------------------------------------
-STRENGTH / RESISTANCE
+STRENGTH
 -----------------------------------------
 
 For each explicitly described set return:
@@ -152,11 +178,9 @@ Rules:
 - If duration is not explicitly stated, duration_mins = 0.
 - Do not infer duration from sets or reps.
 - If distance, speed, or incline are not relevant, use 0.
-- activity_type must be "strength".
+- activity_type = "strength".
 
 WEIGHT BASIS:
-
-Pay close attention to wording.
 
 "5 kg each"
 => weight_value = 5
@@ -167,15 +191,12 @@ Pay close attention to wording.
 => weight_basis = "each"
 
 "10 kg total"
-=> weight_value = 10
 => weight_basis = "total"
 
 "5 kg per side"
-=> weight_value = 5
 => weight_basis = "per side"
 
-"40 kg" with no indication whether it is total, each, or per side
-=> weight_value = 40
+"40 kg" without clarification
 => weight_basis = "unknown"
 
 NEVER guess the weight basis.
@@ -206,67 +227,45 @@ incline
 notes
 estimated_workout_calories
 
-CARDIO RULES:
+Rules:
 
 - activity_type = "cardio".
-- exercise should identify the activity.
 - Capture duration ONLY when explicitly stated.
 - Capture speed ONLY when explicitly stated.
 - Capture distance ONLY when explicitly stated.
 - Capture incline ONLY when explicitly stated.
-
-Examples:
-
-"walked for 30 minutes"
-=> duration_mins = 30
-=> speed = 0
-=> distance = 0
-
-"walked 3 km in 30 minutes"
-=> distance = 3
-=> duration_mins = 30
-
-"treadmill for 20 minutes at 6 km/h"
-=> duration_mins = 20
-=> speed = 6
-
-"treadmill at 5% incline"
-=> incline = 5
-
-Do NOT invent speed, distance, or incline.
+- Do not invent cardio metrics.
 
 For cardio:
-- set_number = 0
-- reps_completed = 0
-- weight_value = 0
-- weight_type = ""
-- weight_basis = "unknown"
-- set_result = ""
+
+set_number = 0
+reps_completed = 0
+weight_value = 0
+weight_type = ""
+weight_basis = "unknown"
+set_result = ""
 
 -----------------------------------------
 WORKOUT CALORIES
 -----------------------------------------
 
-Workout calorie values are estimates, not measurements.
+Workout calories are ESTIMATES, not measurements.
 
-Do NOT randomly change the estimate for identical workout descriptions.
+Do not claim they are exact.
 
-Use a consistent approach.
+For strength exercises where duration is not explicitly provided:
 
-For strength workouts where duration is not explicitly provided:
-
-- Do not pretend that the calorie number is precise.
-- Use a conservative consistent estimate based on the exercise/set description.
-- Identical exercise + reps + weight should produce approximately the same estimate.
+- The application will apply a deterministic estimate after extraction.
+- Do not invent a calorie value based on intuition.
+- Set estimated_workout_calories = 0 in the AI response for strength.
 
 For cardio:
 
-- Estimate only when duration is explicitly provided and the activity is reasonably identifiable.
-- Use the same estimation approach for the same activity and duration.
-- If insufficient information exists, use 0.
+- The application will apply a deterministic estimate after extraction.
+- Set estimated_workout_calories = 0 in the AI response.
 
 -----------------------------------------
-WELLNESS / DAILY CHECK-IN
+WELLNESS
 -----------------------------------------
 
 Use one wellness object when wellness information exists.
@@ -288,17 +287,15 @@ period_flow
 period_symptoms
 notes
 
-IMPORTANT:
+The following are 1–10 scores:
 
-The following five fields are ALWAYS intended to be 1–10 scores:
+energy
+mood
+stress
+hunger
+soreness
 
-- energy
-- mood
-- stress
-- hunger
-- soreness
-
-If the user explicitly gives a number, preserve that number.
+If the user explicitly gives a number, preserve it.
 
 Examples:
 
@@ -321,59 +318,53 @@ Examples:
 QUALITATIVE WELLNESS SCORING
 -----------------------------------------
 
-If the user gives a qualitative description instead of a number, convert it to the following fixed 1–10 scale.
+For mood and energy:
 
-Do NOT randomly choose a number.
+terrible = 1
+very bad = 2
+bad = 3
+below average = 4
+okay = 5
+fair = 6
+good = 7
+very good = 8
+great = 9
+excellent = 10
 
-MOOD / ENERGY:
+For stress, hunger, and soreness:
 
-"terrible" = 1
-"very bad" = 2
-"bad" = 3
-"below average" = 4
-"okay" = 5
-"fair" = 6
-"good" = 7
-"very good" = 8
-"great" = 9
-"excellent" = 10
-
-STRESS / HUNGER / SORENESS:
-
-For these fields, the score represents the AMOUNT or INTENSITY.
-
-"none" = 1
-"minimal" = 2
-"very mild" = 2
-"mild" = 3
-"low" = 3
-"moderate" = 5
-"medium" = 5
-"high" = 7
-"severe" = 9
-"very severe" = 10
-
-If the wording clearly indicates a value between these categories, choose the closest appropriate score.
+none = 1
+minimal = 2
+very mild = 2
+mild = 3
+low = 3
+moderate = 5
+medium = 5
+high = 7
+severe = 9
+very severe = 10
 
 Do not invent a score when the field was not mentioned.
 
-IMPORTANT:
-
-When a qualitative description is converted into a number, preserve the original wording in the wellness notes.
+When converting qualitative wording into a number, preserve the original wording in notes.
 
 Example:
 
 "I have mild soreness"
 
 => soreness = 3
-=> notes should include "mild soreness"
+
+=> notes should include:
+"mild soreness"
 
 Example:
 
 "mood was good"
 
 => mood = 7
-=> notes should include "mood was good"
+
+=> notes should include:
+"mood was good"
 
 -----------------------------------------
 WATER
@@ -381,38 +372,27 @@ WATER
 
 Normalize water to LITERS.
 
-Examples:
+"2 L" => 2
+"2 liters" => 2
+"500 ml" => 0.5
+"750 ml" => 0.75
+"1500 ml" => 1.5
 
-"2 L"
-=> water = 2
-
-"2 liters"
-=> water = 2
-
-"500 ml"
-=> water = 0.5
-
-"750 ml"
-=> water = 0.75
-
-"1500 ml"
-=> water = 1.5
-
-Never store milliliters in the water field.
+Never store milliliters in water.
 
 -----------------------------------------
-OTHER WELLNESS FIELDS
+OTHER WELLNESS
 -----------------------------------------
 
 Sleep is stored in hours.
 
 Steps are stored as the actual number.
 
-Weight should be stored in kg when the user gives weight in kg.
+Weight is stored in kg when given in kg.
 
-If a numeric wellness field is not mentioned, use 0.
+If a numeric field is not mentioned, use 0.
 
-If a text wellness field is not mentioned, use "".
+If a text field is not mentioned, use "".
 
 If no wellness information exists, wellness must be [].
 
@@ -779,9 +759,6 @@ ${note}
           await response.json();
 
         if (response.ok) {
-          console.log(
-            `Gemini succeeded using ${model}`
-          );
           break;
         }
 
@@ -830,16 +807,14 @@ ${note}
     ) {
 
       return res.status(503).json({
-
         error:
           "Gemini is temporarily busy. Please try again in a moment."
-
       });
 
     }
 
     // -----------------------------------------
-    // PARSE GEMINI
+    // PARSE
     // -----------------------------------------
 
     const text =
@@ -862,16 +837,9 @@ ${note}
         error
       );
 
-      console.error(
-        "Gemini returned:",
-        text
-      );
-
       return res.status(500).json({
-
         error:
           "Gemini returned an unexpected response."
-
       });
 
     }
@@ -920,6 +888,20 @@ ${note}
         food.notes = "";
       }
 
+      // Meal type is an occasion.
+      // Meal time must only be a clock time.
+
+      if (
+        food.meal_time &&
+        !/^\d{1,2}:\d{2}$/.test(
+          food.meal_time
+        )
+      ) {
+
+        food.meal_time = "";
+
+      }
+
     });
 
     // -----------------------------------------
@@ -957,15 +939,6 @@ ${note}
       }
 
       if (
-        typeof workout.estimated_workout_calories !== "number" ||
-        Number.isNaN(
-          workout.estimated_workout_calories
-        )
-      ) {
-        workout.estimated_workout_calories = 0;
-      }
-
-      if (
         ![
           "each",
           "total",
@@ -982,8 +955,86 @@ ${note}
         workout.activity_type = "strength";
       }
 
-      // Preserve additional workout information
-      // in the existing Notes column.
+      // ---------------------------------------
+      // DETERMINISTIC CALORIE ESTIMATE
+      // ---------------------------------------
+
+      if (workout.activity_type === "strength") {
+
+        /*
+          Strength calories are intentionally
+          conservative and deterministic.
+
+          Same exercise + same reps + same
+          description => same result.
+
+          This is an estimate, not a measurement.
+        */
+
+        const reps =
+          Number(workout.reps_completed) || 0;
+
+        const exercise =
+          String(
+            workout.exercise || ""
+          ).toLowerCase();
+
+        let caloriesPerRep = 3;
+
+        if (
+          exercise.includes("squat") ||
+          exercise.includes("deadlift") ||
+          exercise.includes("lunge") ||
+          exercise.includes("leg press")
+        ) {
+
+          caloriesPerRep = 5;
+
+        } else if (
+          exercise.includes("row") ||
+          exercise.includes("pull") ||
+          exercise.includes("press") ||
+          exercise.includes("bench") ||
+          exercise.includes("push")
+        ) {
+
+          caloriesPerRep = 3.33;
+
+        }
+
+        workout.estimated_workout_calories =
+          Math.round(
+            reps * caloriesPerRep
+          );
+
+      } else {
+
+        /*
+          Cardio estimate:
+          5 kcal/minute.
+
+          This is deliberately simple and
+          deterministic for V2.
+
+          Example:
+          30 min walking = 150 kcal.
+        */
+
+        const duration =
+          Number(
+            workout.duration_mins
+          ) || 0;
+
+        workout.estimated_workout_calories =
+          Math.round(
+            duration * 5
+          );
+
+      }
+
+      // ---------------------------------------
+      // CLEAN NOTES
+      // ---------------------------------------
 
       const detailParts = [];
 
@@ -1026,22 +1077,19 @@ ${note}
 
         }
 
-      }
+        // Do not retain the model's long
+        // natural-language cardio sentence.
+        // Keep only the structured details.
 
-      if (detailParts.length > 0) {
-
-        const generatedDetails =
+        workout.notes =
           detailParts.join(" | ");
 
-        if (workout.notes) {
+      } else {
+
+        if (detailParts.length > 0) {
 
           workout.notes =
-            `${workout.notes} | ${generatedDetails}`;
-
-        } else {
-
-          workout.notes =
-            generatedDetails;
+            detailParts.join(" | ");
 
         }
 
@@ -1079,15 +1127,17 @@ ${note}
 
       });
 
-      // Water is ALWAYS liters.
+      // Water is always liters.
 
       if (checkin.water > 20) {
+
         checkin.water =
           checkin.water / 1000;
+
       }
 
-      // Keep all graphable 1–10 fields inside
-      // their expected range.
+      // Keep graphable scores within 1–10
+      // when they exist.
 
       const scoreFields = [
         "energy",
@@ -1129,28 +1179,8 @@ ${note}
     });
 
     // -----------------------------------------
-    // LOG EXTRACTION
+    // VALIDATE
     // -----------------------------------------
-
-    console.log(
-      "Detected type:",
-      type
-    );
-
-    console.log(
-      "Foods:",
-      JSON.stringify(foods)
-    );
-
-    console.log(
-      "Workouts:",
-      JSON.stringify(workouts)
-    );
-
-    console.log(
-      "Wellness:",
-      JSON.stringify(wellness)
-    );
 
     if (
       foods.length === 0 &&
@@ -1175,7 +1205,7 @@ ${note}
     }
 
     // -----------------------------------------
-    // SEND TO GOOGLE SHEETS
+    // GOOGLE SHEETS
     // -----------------------------------------
 
     const sheetsResponse =
@@ -1217,16 +1247,6 @@ ${note}
     const sheetsText =
       await sheetsResponse.text();
 
-    console.log(
-      "Google Sheets HTTP status:",
-      sheetsResponse.status
-    );
-
-    console.log(
-      "Google Sheets response:",
-      sheetsText
-    );
-
     let sheetsData;
 
     try {
@@ -1244,7 +1264,6 @@ ${note}
           "Google Sheets did not return valid JSON.",
 
         debug: {
-
           httpStatus:
             sheetsResponse.status,
 
@@ -1253,7 +1272,6 @@ ${note}
               0,
               500
             )
-
         }
 
       });
@@ -1272,13 +1290,11 @@ ${note}
           "Google Sheets rejected the request.",
 
         debug: {
-
           httpStatus:
             sheetsResponse.status,
 
           sheetsResponse:
             sheetsData
-
         }
 
       });
@@ -1332,10 +1348,8 @@ ${note}
         "Something went wrong while processing your entry.",
 
       debug: {
-
         message:
           error.message
-
       }
 
     });
