@@ -56,9 +56,7 @@ GENERAL RULES:
 - Nutrition values may be estimated using common nutritional averages.
 - Preserve useful food-specific details.
 - Preserve useful workout-specific details.
-- Preserve the user's wording for qualitative wellness information.
-- Do not convert qualitative words such as "good", "bad", "mild", "high", or "low" into a numerical score unless the user explicitly gives a numerical score.
-- If a field is not mentioned, use the appropriate empty/zero value defined by the schema.
+- Preserve the meaning of the user's wellness information.
 
 -----------------------------------------
 FOOD
@@ -160,8 +158,6 @@ WEIGHT BASIS:
 
 Pay close attention to wording.
 
-Examples:
-
 "5 kg each"
 => weight_value = 5
 => weight_type = "kg"
@@ -183,8 +179,6 @@ Examples:
 => weight_basis = "unknown"
 
 NEVER guess the weight basis.
-
-If the basis is unclear, use "unknown".
 
 -----------------------------------------
 CARDIO
@@ -215,20 +209,10 @@ estimated_workout_calories
 CARDIO RULES:
 
 - activity_type = "cardio".
-- exercise should identify the activity, such as:
-  walking
-  running
-  cycling
-  swimming
-  treadmill
-  elliptical
-
+- exercise should identify the activity.
 - Capture duration ONLY when explicitly stated.
-
 - Capture speed ONLY when explicitly stated.
-
 - Capture distance ONLY when explicitly stated.
-
 - Capture incline ONLY when explicitly stated.
 
 Examples:
@@ -245,7 +229,6 @@ Examples:
 "treadmill for 20 minutes at 6 km/h"
 => duration_mins = 20
 => speed = 6
-=> speed unit should be preserved in notes if necessary
 
 "treadmill at 5% incline"
 => incline = 5
@@ -260,15 +243,11 @@ For cardio:
 - weight_basis = "unknown"
 - set_result = ""
 
-Do not create fake sets for cardio.
-
 -----------------------------------------
 WORKOUT CALORIES
 -----------------------------------------
 
 Workout calorie values are estimates, not measurements.
-
-Most importantly:
 
 Do NOT randomly change the estimate for identical workout descriptions.
 
@@ -286,10 +265,8 @@ For cardio:
 - Use the same estimation approach for the same activity and duration.
 - If insufficient information exists, use 0.
 
-Never claim workout calories are exact.
-
 -----------------------------------------
-WELLNESS
+WELLNESS / DAILY CHECK-IN
 -----------------------------------------
 
 Use one wellness object when wellness information exists.
@@ -311,14 +288,25 @@ period_flow
 period_symptoms
 notes
 
-WELLNESS RULES:
+IMPORTANT:
 
-1. Preserve explicit numeric values.
+The following five fields are ALWAYS intended to be 1–10 scores:
+
+- energy
+- mood
+- stress
+- hunger
+- soreness
+
+If the user explicitly gives a number, preserve that number.
 
 Examples:
 
 "energy was 8"
 => energy = 8
+
+"mood 6"
+=> mood = 6
 
 "stress was 3"
 => stress = 3
@@ -326,27 +314,70 @@ Examples:
 "hunger was 4"
 => hunger = 4
 
-2. Do NOT convert qualitative descriptions into numbers.
+"soreness 2"
+=> soreness = 2
 
-Example:
+-----------------------------------------
+QUALITATIVE WELLNESS SCORING
+-----------------------------------------
 
-"mood was good"
-=> mood = "good"
+If the user gives a qualitative description instead of a number, convert it to the following fixed 1–10 scale.
 
-NOT:
-mood = 8
+Do NOT randomly choose a number.
+
+MOOD / ENERGY:
+
+"terrible" = 1
+"very bad" = 2
+"bad" = 3
+"below average" = 4
+"okay" = 5
+"fair" = 6
+"good" = 7
+"very good" = 8
+"great" = 9
+"excellent" = 10
+
+STRESS / HUNGER / SORENESS:
+
+For these fields, the score represents the AMOUNT or INTENSITY.
+
+"none" = 1
+"minimal" = 2
+"very mild" = 2
+"mild" = 3
+"low" = 3
+"moderate" = 5
+"medium" = 5
+"high" = 7
+"severe" = 9
+"very severe" = 10
+
+If the wording clearly indicates a value between these categories, choose the closest appropriate score.
+
+Do not invent a score when the field was not mentioned.
+
+IMPORTANT:
+
+When a qualitative description is converted into a number, preserve the original wording in the wellness notes.
 
 Example:
 
 "I have mild soreness"
-=> soreness = "mild soreness"
 
-NOT:
-soreness = 3
+=> soreness = 3
+=> notes should include "mild soreness"
 
-3. Preserve qualitative information as text.
+Example:
 
-4. WATER:
+"mood was good"
+
+=> mood = 7
+=> notes should include "mood was good"
+
+-----------------------------------------
+WATER
+-----------------------------------------
 
 Normalize water to LITERS.
 
@@ -369,25 +400,21 @@ Examples:
 
 Never store milliliters in the water field.
 
-5. Sleep is stored in hours.
+-----------------------------------------
+OTHER WELLNESS FIELDS
+-----------------------------------------
 
-Example:
+Sleep is stored in hours.
 
-"7.5 hours"
-=> sleep = 7.5
+Steps are stored as the actual number.
 
-6. Steps should be stored as the actual number.
+Weight should be stored in kg when the user gives weight in kg.
 
-Example:
+If a numeric wellness field is not mentioned, use 0.
 
-"6000 steps"
-=> steps = 6000
+If a text wellness field is not mentioned, use "".
 
-7. If a numeric wellness field is not mentioned, use 0.
-
-8. If a text wellness field is not mentioned, use "".
-
-9. If no wellness information exists, wellness must be [].
+If no wellness information exists, wellness must be [].
 
 -----------------------------------------
 ENTRY DATE
@@ -619,7 +646,7 @@ ${note}
               },
 
               mood: {
-                type: "STRING"
+                type: "NUMBER"
               },
 
               stress: {
@@ -635,7 +662,7 @@ ${note}
               },
 
               soreness: {
-                type: "STRING"
+                type: "NUMBER"
               },
 
               steps: {
@@ -690,7 +717,7 @@ ${note}
     };
 
     // -----------------------------------------
-    // GEMINI MODELS
+    // GEMINI
     // -----------------------------------------
 
     const models = [
@@ -700,10 +727,6 @@ ${note}
 
     let response = null;
     let data = null;
-
-    // -----------------------------------------
-    // GEMINI REQUEST
-    // -----------------------------------------
 
     for (const model of models) {
 
@@ -756,13 +779,10 @@ ${note}
           await response.json();
 
         if (response.ok) {
-
           console.log(
             `Gemini succeeded using ${model}`
           );
-
           break;
-
         }
 
         if (
@@ -819,7 +839,7 @@ ${note}
     }
 
     // -----------------------------------------
-    // PARSE GEMINI RESPONSE
+    // PARSE GEMINI
     // -----------------------------------------
 
     const text =
@@ -884,26 +904,20 @@ ${note}
         typeof food.fiber !== "number" ||
         Number.isNaN(food.fiber)
       ) {
-
         food.fiber = 0;
-
       }
 
       if (
         typeof food.quantity_grams !== "number" ||
         Number.isNaN(food.quantity_grams)
       ) {
-
         food.quantity_grams = 0;
-
       }
 
       if (
         typeof food.notes !== "string"
       ) {
-
         food.notes = "";
-
       }
 
     });
@@ -918,48 +932,37 @@ ${note}
         typeof workout.duration_mins !== "number" ||
         Number.isNaN(workout.duration_mins)
       ) {
-
         workout.duration_mins = 0;
-
       }
 
       if (
         typeof workout.distance !== "number" ||
         Number.isNaN(workout.distance)
       ) {
-
         workout.distance = 0;
-
       }
 
       if (
         typeof workout.speed !== "number" ||
         Number.isNaN(workout.speed)
       ) {
-
         workout.speed = 0;
-
       }
 
       if (
         typeof workout.incline !== "number" ||
         Number.isNaN(workout.incline)
       ) {
-
         workout.incline = 0;
-
       }
 
       if (
-        typeof workout.estimated_workout_calories
-        !== "number" ||
+        typeof workout.estimated_workout_calories !== "number" ||
         Number.isNaN(
           workout.estimated_workout_calories
         )
       ) {
-
         workout.estimated_workout_calories = 0;
-
       }
 
       if (
@@ -970,22 +973,17 @@ ${note}
           "unknown"
         ].includes(workout.weight_basis)
       ) {
-
         workout.weight_basis = "unknown";
-
       }
 
       if (
         workout.activity_type !== "cardio"
       ) {
-
         workout.activity_type = "strength";
-
       }
 
-      // Preserve the new workout details inside
-      // the existing Notes column without changing
-      // the Google Sheet structure.
+      // Preserve additional workout information
+      // in the existing Notes column.
 
       const detailParts = [];
 
@@ -1007,7 +1005,7 @@ ${note}
         if (workout.distance > 0) {
 
           detailParts.push(
-            `Distance: ${workout.distance}`
+            `Distance: ${workout.distance} km`
           );
 
         }
@@ -1015,7 +1013,7 @@ ${note}
         if (workout.speed > 0) {
 
           detailParts.push(
-            `Speed: ${workout.speed}`
+            `Speed: ${workout.speed} km/h`
           );
 
         }
@@ -1062,8 +1060,10 @@ ${note}
         "water",
         "sleep",
         "energy",
+        "mood",
         "stress",
         "hunger",
+        "soreness",
         "steps",
         "period_day"
       ];
@@ -1074,35 +1074,43 @@ ${note}
           typeof checkin[field] !== "number" ||
           Number.isNaN(checkin[field])
         ) {
-
           checkin[field] = 0;
-
         }
 
       });
 
-      // Safety normalization:
-      // water is ALWAYS stored in liters.
-      //
-      // If the model somehow returns a large
-      // milliliter-style number, convert it.
-      //
-      // Example:
-      // 500 -> 0.5
-      // 1000 -> 1
-      // 1500 -> 1.5
+      // Water is ALWAYS liters.
 
       if (checkin.water > 20) {
-
         checkin.water =
           checkin.water / 1000;
-
       }
 
-      const textFields = [
+      // Keep all graphable 1–10 fields inside
+      // their expected range.
+
+      const scoreFields = [
+        "energy",
         "mood",
+        "stress",
+        "hunger",
+        "soreness"
+      ];
+
+      scoreFields.forEach(function(field) {
+
+        if (checkin[field] < 0) {
+          checkin[field] = 0;
+        }
+
+        if (checkin[field] > 10) {
+          checkin[field] = 10;
+        }
+
+      });
+
+      const textFields = [
         "cravings",
-        "soreness",
         "period_flow",
         "period_symptoms",
         "notes"
@@ -1113,9 +1121,7 @@ ${note}
         if (
           typeof checkin[field] !== "string"
         ) {
-
           checkin[field] = "";
-
         }
 
       });
