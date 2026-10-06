@@ -49,7 +49,7 @@ The note may contain:
 
 Return ONLY valid JSON.
 
-IMPORTANT:
+IMPORTANT GENERAL RULES:
 
 - Extract every explicitly mentioned food item.
 - Extract every explicitly described workout set.
@@ -81,6 +81,17 @@ fat
 fiber
 notes
 
+FOOD RULES:
+
+- Extract every food item mentioned.
+- Create one object per food item.
+- Estimate nutrition using common nutritional averages.
+- Preserve quantities explicitly stated by the user.
+- Do not invent food items.
+- Fiber should be estimated when reasonable.
+- If fiber is negligible, use 0.
+- If no food is present, foods must be [].
+
 WORKOUT:
 
 For every explicitly described set return:
@@ -96,21 +107,31 @@ duration_mins
 notes
 estimated_workout_calories
 
-Example:
+WORKOUT RULES:
 
-"I did 3 sets of squats, 10 reps each, with 40 kg"
-
-must produce exactly 3 workout objects:
-
-set 1
-set 2
-set 3
-
-with 10 reps and 40 kg for each.
+- Extract every workout explicitly mentioned.
+- Create one object per explicitly described set.
+- If the user says "3 sets of squats, 10 reps each, with 40 kg",
+  create exactly 3 workout objects:
+  set 1
+  set 2
+  set 3
+- Do not invent sets.
+- Do not invent reps.
+- Do not invent weight.
+- Do not invent exercise names.
+- Only record duration when the user explicitly states a duration.
+- Never infer duration from the number of sets, reps, exercise type,
+  weight, or any other information.
+- If no duration is explicitly stated, set duration_mins to 0.
+- Estimate workout calories only when a reasonable estimate is possible.
+- Workout calorie values are estimates, not exact measurements.
+- If a reasonable calorie estimate cannot be made, use 0.
+- Do not invent workout information.
 
 WELLNESS:
 
-Use one object for the wellness information in the note.
+Use one object for wellness information in the note.
 
 Fields:
 
@@ -129,11 +150,13 @@ period_flow
 period_symptoms
 notes
 
-If a wellness field is not mentioned, use:
-- 0 for numeric fields
-- "" for text fields
+WELLNESS RULES:
 
-If no wellness information exists, wellness must be [].
+- Preserve values explicitly stated by the user.
+- Do not invent wellness measurements.
+- If a numeric wellness field is not mentioned, use 0.
+- If a text wellness field is not mentioned, use "".
+- If no wellness information exists, wellness must be [].
 
 ENTRY DATE:
 ${today}
@@ -144,17 +167,6 @@ ${userId || ""}
 USER NOTE:
 ${note}
 `;
-
-    /*
-     * Gemini structured output schema.
-     *
-     * IMPORTANT:
-     * Gemini does not accept JSON Schema union types such as
-     * ["number", "null"] here.
-     *
-     * Therefore numeric fields are plain "number" and text
-     * fields are plain "string".
-     */
 
     const responseSchema = {
       type: "OBJECT",
@@ -622,6 +634,16 @@ ${note}
     workouts.forEach(function(workout) {
 
       if (
+        typeof workout.duration_mins !== "number" ||
+        Number.isNaN(workout.duration_mins)
+      ) {
+
+        workout.duration_mins = 0;
+
+      }
+
+
+      if (
         typeof workout.estimated_workout_calories
         !== "number" ||
         Number.isNaN(
@@ -864,35 +886,27 @@ ${note}
       success: true,
 
       type:
-
         type,
 
       foods:
-
         foods,
 
       workouts:
-
         workouts,
 
       wellness:
-
         wellness,
 
       rowsAdded:
-
         sheetsData.rowsAdded || 0,
 
       foodRowsAdded:
-
         sheetsData.foodRowsAdded || 0,
 
       workoutRowsAdded:
-
         sheetsData.workoutRowsAdded || 0,
 
       wellnessRowsAdded:
-
         sheetsData.wellnessRowsAdded || 0
 
     });
