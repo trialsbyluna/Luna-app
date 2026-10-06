@@ -1,142 +1,165 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
   <title>Luna</title>
 
   <style>
-    * {
-      box-sizing: border-box;
-    }
-
     body {
-      margin: 0;
       font-family: Arial, sans-serif;
       background: #f7f7f7;
+      margin: 0;
+      padding: 30px 16px;
       color: #222;
     }
 
     .container {
       max-width: 700px;
-      margin: 0 auto;
-      padding: 60px 20px;
+      margin: auto;
     }
 
     h1 {
-      font-size: 42px;
-      margin-bottom: 10px;
+      margin-bottom: 6px;
     }
 
     .subtitle {
       color: #666;
-      margin-bottom: 35px;
+      margin-bottom: 24px;
     }
 
     .card {
       background: white;
-      border-radius: 16px;
-      padding: 25px;
-      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 18px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
     }
 
     label {
       display: block;
       font-weight: bold;
-      margin-bottom: 8px;
+      margin-bottom: 7px;
     }
 
     input,
     textarea {
       width: 100%;
-      padding: 14px;
+      box-sizing: border-box;
+      padding: 12px;
       border: 1px solid #ddd;
-      border-radius: 10px;
+      border-radius: 8px;
       font-size: 16px;
-      margin-bottom: 20px;
+      margin-bottom: 16px;
     }
 
     textarea {
-      min-height: 140px;
+      min-height: 130px;
       resize: vertical;
     }
 
     button {
       width: 100%;
-      padding: 14px;
+      padding: 13px;
       border: none;
-      border-radius: 10px;
+      border-radius: 8px;
       background: #222;
       color: white;
       font-size: 16px;
       cursor: pointer;
     }
 
-    button:hover {
-      opacity: 0.9;
-    }
-
     button:disabled {
       opacity: 0.6;
-      cursor: not-allowed;
+      cursor: wait;
     }
 
-    .message {
-      margin-top: 20px;
-      color: #666;
-    }
-
-    .result {
-      margin-top: 25px;
-      background: #f7f7f7;
-      border-radius: 12px;
-      padding: 20px;
-    }
-
-    .result h2 {
-      margin-top: 0;
+    .section-title {
       font-size: 20px;
+      font-weight: bold;
+      margin-bottom: 14px;
     }
 
-    .row {
+    .item {
+      border-bottom: 1px solid #eee;
       padding: 12px 0;
-      border-bottom: 1px solid #ddd;
     }
 
-    .row:last-child {
+    .item:last-child {
       border-bottom: none;
     }
 
-    .row-title {
+    .item-name {
       font-weight: bold;
+      font-size: 17px;
+      margin-bottom: 5px;
     }
 
-    .row-details {
-      color: #666;
-      font-size: 14px;
-      margin-top: 4px;
+    .details {
+      color: #555;
+      line-height: 1.5;
     }
 
     .total {
-      display: flex;
-      justify-content: space-between;
-      margin-top: 18px;
-      font-size: 18px;
       font-weight: bold;
+      margin-top: 14px;
+      font-size: 17px;
+    }
+
+    .wellness-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+    }
+
+    .wellness-item {
+      background: #f7f7f7;
+      padding: 12px;
+      border-radius: 8px;
+    }
+
+    .wellness-label {
+      color: #666;
+      font-size: 13px;
+      margin-bottom: 4px;
+    }
+
+    .wellness-value {
+      font-weight: bold;
+      font-size: 16px;
+    }
+
+    .message {
+      padding: 12px;
+      border-radius: 8px;
+      margin-top: 15px;
+      background: #f2f2f2;
+    }
+
+    .error {
+      background: #fff0f0;
+      color: #a00000;
     }
 
     .debug {
-      margin-top: 15px;
-      padding: 12px;
-      background: #fff;
-      border-radius: 8px;
       font-size: 13px;
-      color: #555;
+      color: #666;
+      line-height: 1.6;
     }
 
-    .hidden {
-      display: none;
+    .empty {
+      color: #777;
+    }
+
+    @media (max-width: 500px) {
+      body {
+        padding: 20px 12px;
+      }
+
+      .wellness-grid {
+        grid-template-columns: 1fr;
+      }
     }
   </style>
 </head>
@@ -147,371 +170,76 @@
 
     <h1>Talk to Luna</h1>
 
-    <p class="subtitle">
-      Tell Luna what you ate, your workout, or how you're feeling.
-    </p>
+    <div class="subtitle">
+      Tell Luna what you ate, how you trained, or how you felt.
+    </div>
+
+    <!-- INPUT -->
 
     <div class="card">
 
-      <label for="userId">User ID</label>
+      <label for="userId">
+        User ID
+      </label>
 
       <input
         id="userId"
         type="text"
-        placeholder="e.g. Saloni"
-      >
+        placeholder="e.g. Test"
+      />
 
-      <label for="note">What happened?</label>
+      <label for="note">
+        What happened?
+      </label>
 
       <textarea
         id="note"
-        placeholder="e.g. I did 3 sets of squats, 10 reps each, with 40 kg"
+        placeholder="Example: I had eggs and toast for breakfast..."
       ></textarea>
 
-      <button
-        id="submitButton"
-        onclick="submitEntry()"
-      >
-        Send to Luna
+      <button id="submitButton">
+        Log with Luna
       </button>
 
-      <div id="message" class="message"></div>
-
-      <div id="result" class="result hidden"></div>
+      <div id="message"></div>
 
     </div>
+
+
+    <!-- RESULTS -->
+
+    <div id="results"></div>
 
   </div>
 
 
   <script>
 
-    async function submitEntry() {
+    const userIdInput =
+      document.getElementById("userId");
 
-      const userId =
-        document.getElementById("userId").value.trim();
+    const noteInput =
+      document.getElementById("note");
 
-      const note =
-        document.getElementById("note").value.trim();
+    const submitButton =
+      document.getElementById("submitButton");
 
-      const message =
-        document.getElementById("message");
+    const message =
+      document.getElementById("message");
 
-      const result =
-        document.getElementById("result");
+    const results =
+      document.getElementById("results");
 
-      const button =
-        document.getElementById("submitButton");
 
-
-      if (!userId || !note) {
-
-        message.textContent =
-          "Please enter your User ID and note.";
-
-        result.classList.add("hidden");
-
-        return;
-      }
-
-
-      message.textContent =
-        "Luna is thinking...";
-
-      result.classList.add("hidden");
-
-      button.disabled = true;
-
-
-      try {
-
-        const response =
-          await fetch("/api/process", {
-
-            method: "POST",
-
-            headers: {
-              "Content-Type": "application/json"
-            },
-
-            body: JSON.stringify({
-              userId: userId,
-              note: note
-            })
-
-          });
-
-
-        const data =
-          await response.json();
-
-
-        console.log(
-          "Luna response:",
-          data
-        );
-
-
-        if (!response.ok) {
-
-          message.textContent =
-            data.error ||
-            "Something went wrong.";
-
-          showDebug(data);
-
-          button.disabled = false;
-
-          return;
-        }
-
-
-        message.textContent =
-          "Logged successfully 🎉";
-
-
-        displayResult(data);
-
-
-        button.disabled = false;
-
-
-      } catch (error) {
-
-        console.error(error);
-
-        message.textContent =
-          "Could not connect to Luna. Please try again.";
-
-        button.disabled = false;
-      }
-    }
-
-
-    function displayResult(data) {
-
-      const result =
-        document.getElementById("result");
-
-
-      const type =
-        data.type || "unknown";
-
-
-      const foods =
-        Array.isArray(data.foods)
-          ? data.foods
-          : [];
-
-
-      const workouts =
-        Array.isArray(data.workouts)
-          ? data.workouts
-          : [];
-
-
-      let html = "";
-
-
-      // FOOD RESULT
-
-      if (foods.length > 0) {
-
-        let totalCalories = 0;
-
-        html +=
-          "<h2>Here's what Luna logged</h2>";
-
-
-        foods.forEach(function(food) {
-
-          const calories =
-            Number(food.calories) || 0;
-
-          totalCalories += calories;
-
-
-          html += `
-            <div class="row">
-
-              <div class="row-title">
-                ${escapeHtml(food.food_item || "Food")}
-              </div>
-
-              <div class="row-details">
-                ${escapeHtml(
-                  food.quantity_grams
-                    ? food.quantity_grams + "g"
-                    : ""
-                )}
-
-                ${
-                  food.meal_type
-                    ? " · " + escapeHtml(food.meal_type)
-                    : ""
-                }
-
-                · ${calories} kcal
-              </div>
-
-            </div>
-          `;
-        });
-
-
-        html += `
-          <div class="total">
-            <span>Total</span>
-            <span>${totalCalories} kcal</span>
-          </div>
-        `;
-      }
-
-
-      // WORKOUT RESULT
-
-      if (workouts.length > 0) {
-
-        if (foods.length === 0) {
-
-          html +=
-            "<h2>Here's what Luna logged</h2>";
-        }
-
-
-        workouts.forEach(function(workout) {
-
-          let details = [];
-
-
-          if (workout.set_number) {
-
-            details.push(
-              "Set " +
-              workout.set_number
-            );
-          }
-
-
-          if (workout.reps_completed) {
-
-            details.push(
-              workout.reps_completed +
-              " reps"
-            );
-          }
-
-
-          if (workout.weight_value) {
-
-            details.push(
-              workout.weight_value +
-              " " +
-              (workout.weight_type || "")
-            );
-          }
-
-
-          if (workout.duration_mins) {
-
-            details.push(
-              workout.duration_mins +
-              " min"
-            );
-          }
-
-
-          html += `
-            <div class="row">
-
-              <div class="row-title">
-                ${escapeHtml(
-                  workout.exercise ||
-                  "Workout"
-                )}
-              </div>
-
-              <div class="row-details">
-                ${escapeHtml(
-                  details.join(" · ")
-                )}
-              </div>
-
-            </div>
-          `;
-        });
-
-
-        html += `
-          <div class="total">
-            <span>Workout rows added</span>
-            <span>
-              ${data.workoutRowsAdded || 0}
-            </span>
-          </div>
-        `;
-      }
-
-
-      // NOTHING DETECTED
-
-      if (
-        foods.length === 0 &&
-        workouts.length === 0
-      ) {
-
-        html +=
-          "<h2>No food or workout details returned.</h2>";
-      }
-
-
-      // DEBUG INFORMATION
-
-      html += `
-        <div class="debug">
-          <strong>Processing details</strong><br>
-          Type detected: ${escapeHtml(type)}<br>
-          Food items: ${foods.length}<br>
-          Workout items: ${workouts.length}<br>
-          Food rows added: ${data.foodRowsAdded || 0}<br>
-          Workout rows added: ${data.workoutRowsAdded || 0}<br>
-          Total rows added: ${data.rowsAdded || 0}
-        </div>
-      `;
-
-
-      result.innerHTML =
-        html;
-
-      result.classList.remove(
-        "hidden"
-      );
-    }
-
-
-    function showDebug(data) {
-
-      const result =
-        document.getElementById("result");
-
-
-      result.innerHTML = `
-        <div class="debug">
-          <strong>Diagnostic information</strong>
-          <pre>${escapeHtml(
-            JSON.stringify(data, null, 2)
-          )}</pre>
-        </div>
-      `;
-
-
-      result.classList.remove(
-        "hidden"
-      );
-    }
-
+    // -----------------------------------------
+    // HELPERS
+    // -----------------------------------------
 
     function escapeHtml(value) {
+
+      if (value === null || value === undefined) {
+        return "";
+      }
 
       return String(value)
         .replace(/&/g, "&amp;")
@@ -520,6 +248,681 @@
         .replace(/"/g, "&quot;")
         .replace(/'/g, "&#039;");
     }
+
+
+    function formatNumber(value) {
+
+      if (
+        value === null ||
+        value === undefined ||
+        value === ""
+      ) {
+        return "";
+      }
+
+      const number =
+        Number(value);
+
+      if (Number.isNaN(number)) {
+        return escapeHtml(value);
+      }
+
+      return number
+        .toLocaleString(
+          undefined,
+          {
+            maximumFractionDigits: 2
+          }
+        );
+    }
+
+
+    function showMessage(
+      text,
+      isError = false
+    ) {
+
+      message.className =
+        isError
+          ? "message error"
+          : "message";
+
+      message.textContent =
+        text;
+    }
+
+
+    // -----------------------------------------
+    // FOOD
+    // -----------------------------------------
+
+    function renderFood(foods) {
+
+      if (
+        !Array.isArray(foods) ||
+        foods.length === 0
+      ) {
+
+        return "";
+
+      }
+
+      let totalCalories = 0;
+
+      const items =
+        foods.map(function(food) {
+
+          const calories =
+            Number(food.calories) || 0;
+
+          totalCalories +=
+            calories;
+
+          return `
+            <div class="item">
+
+              <div class="item-name">
+                ${escapeHtml(food.food_item)}
+              </div>
+
+              <div class="details">
+                ${formatNumber(food.quantity_grams)}g
+                ·
+                ${escapeHtml(food.meal_type || "")}
+                ·
+                ${formatNumber(calories)} kcal
+              </div>
+
+              ${
+                food.notes
+                  ? `
+                    <div class="details">
+                      ${escapeHtml(food.notes)}
+                    </div>
+                  `
+                  : ""
+              }
+
+            </div>
+          `;
+
+        }).join("");
+
+
+      return `
+
+        <div class="card">
+
+          <div class="section-title">
+            Food
+          </div>
+
+          ${items}
+
+          <div class="total">
+            Total: ${formatNumber(totalCalories)} kcal
+          </div>
+
+        </div>
+
+      `;
+
+    }
+
+
+    // -----------------------------------------
+    // WORKOUT
+    // -----------------------------------------
+
+    function renderWorkout(workouts) {
+
+      if (
+        !Array.isArray(workouts) ||
+        workouts.length === 0
+      ) {
+
+        return "";
+
+      }
+
+
+      const items =
+        workouts.map(function(workout) {
+
+          const isCardio =
+            workout.activity_type === "cardio";
+
+
+          let details = "";
+
+
+          if (isCardio) {
+
+            const cardioParts = [];
+
+
+            if (
+              Number(workout.duration_mins) > 0
+            ) {
+
+              cardioParts.push(
+                `${formatNumber(workout.duration_mins)} min`
+              );
+
+            }
+
+
+            if (
+              Number(workout.speed) > 0
+            ) {
+
+              cardioParts.push(
+                `${formatNumber(workout.speed)} km/h`
+              );
+
+            }
+
+
+            if (
+              Number(workout.distance) > 0
+            ) {
+
+              cardioParts.push(
+                `${formatNumber(workout.distance)} km`
+              );
+
+            }
+
+
+            if (
+              Number(workout.incline) > 0
+            ) {
+
+              cardioParts.push(
+                `${formatNumber(workout.incline)}% incline`
+              );
+
+            }
+
+
+            details =
+              cardioParts.join(" · ");
+
+          } else {
+
+            const strengthParts = [];
+
+
+            if (
+              Number(workout.set_number) > 0
+            ) {
+
+              strengthParts.push(
+                `Set ${formatNumber(workout.set_number)}`
+              );
+
+            }
+
+
+            if (
+              Number(workout.reps_completed) > 0
+            ) {
+
+              strengthParts.push(
+                `${formatNumber(workout.reps_completed)} reps`
+              );
+
+            }
+
+
+            if (
+              Number(workout.weight_value) > 0
+            ) {
+
+              let weightText =
+                `${formatNumber(workout.weight_value)} ${escapeHtml(workout.weight_type || "")}`;
+
+
+              if (
+                workout.weight_basis &&
+                workout.weight_basis !== "unknown"
+              ) {
+
+                weightText +=
+                  ` · ${escapeHtml(workout.weight_basis)}`;
+
+              }
+
+
+              strengthParts.push(
+                weightText
+              );
+
+            }
+
+
+            details =
+              strengthParts.join(" · ");
+
+          }
+
+
+          return `
+
+            <div class="item">
+
+              <div class="item-name">
+                ${escapeHtml(workout.exercise)}
+              </div>
+
+              ${
+                details
+                  ? `
+                    <div class="details">
+                      ${details}
+                    </div>
+                  `
+                  : ""
+              }
+
+              ${
+                workout.notes
+                  ? `
+                    <div class="details">
+                      ${escapeHtml(workout.notes)}
+                    </div>
+                  `
+                  : ""
+              }
+
+            </div>
+
+          `;
+
+        }).join("");
+
+
+      return `
+
+        <div class="card">
+
+          <div class="section-title">
+            Workout
+          </div>
+
+          ${items}
+
+          <div class="total">
+            Workout rows added:
+            ${workouts.length}
+          </div>
+
+        </div>
+
+      `;
+
+    }
+
+
+    // -----------------------------------------
+    // WELLNESS
+    // -----------------------------------------
+
+    function renderWellness(wellness) {
+
+      if (
+        !Array.isArray(wellness) ||
+        wellness.length === 0
+      ) {
+
+        return "";
+
+      }
+
+
+      const checkin =
+        wellness[0];
+
+
+      const fields = [];
+
+
+      if (Number(checkin.weight) > 0) {
+
+        fields.push({
+          label: "Weight",
+          value:
+            `${formatNumber(checkin.weight)}`
+        });
+
+      }
+
+
+      if (Number(checkin.water) > 0) {
+
+        fields.push({
+          label: "Water",
+          value:
+            `${formatNumber(checkin.water)} L`
+        });
+
+      }
+
+
+      if (Number(checkin.sleep) > 0) {
+
+        fields.push({
+          label: "Sleep",
+          value:
+            `${formatNumber(checkin.sleep)} hrs`
+        });
+
+      }
+
+
+      if (Number(checkin.energy) > 0) {
+
+        fields.push({
+          label: "Energy",
+          value:
+            formatNumber(checkin.energy)
+        });
+
+      }
+
+
+      if (checkin.mood) {
+
+        fields.push({
+          label: "Mood",
+          value:
+            checkin.mood
+        });
+
+      }
+
+
+      if (Number(checkin.stress) > 0) {
+
+        fields.push({
+          label: "Stress",
+          value:
+            formatNumber(checkin.stress)
+        });
+
+      }
+
+
+      if (Number(checkin.hunger) > 0) {
+
+        fields.push({
+          label: "Hunger",
+          value:
+            formatNumber(checkin.hunger)
+        });
+
+      }
+
+
+      if (checkin.cravings) {
+
+        fields.push({
+          label: "Cravings",
+          value:
+            checkin.cravings
+        });
+
+      }
+
+
+      if (checkin.soreness) {
+
+        fields.push({
+          label: "Soreness",
+          value:
+            checkin.soreness
+        });
+
+      }
+
+
+      if (Number(checkin.steps) > 0) {
+
+        fields.push({
+          label: "Steps",
+          value:
+            formatNumber(checkin.steps)
+        });
+
+      }
+
+
+      if (
+        fields.length === 0
+      ) {
+
+        return "";
+
+      }
+
+
+      const cards =
+        fields.map(function(field) {
+
+          return `
+
+            <div class="wellness-item">
+
+              <div class="wellness-label">
+                ${escapeHtml(field.label)}
+              </div>
+
+              <div class="wellness-value">
+                ${escapeHtml(field.value)}
+              </div>
+
+            </div>
+
+          `;
+
+        }).join("");
+
+
+      return `
+
+        <div class="card">
+
+          <div class="section-title">
+            Wellness
+          </div>
+
+          <div class="wellness-grid">
+
+            ${cards}
+
+          </div>
+
+        </div>
+
+      `;
+
+    }
+
+
+    // -----------------------------------------
+    // DEBUG INFORMATION
+    // -----------------------------------------
+
+    function renderDebug(data) {
+
+      return `
+
+        <div class="card">
+
+          <div class="section-title">
+            Processing details
+          </div>
+
+          <div class="debug">
+
+            Type detected:
+            ${escapeHtml(data.type || "none")}
+            <br>
+
+            Food items:
+            ${data.foods?.length || 0}
+            <br>
+
+            Workout items:
+            ${data.workouts?.length || 0}
+            <br>
+
+            Wellness entries:
+            ${data.wellness?.length || 0}
+            <br>
+
+            Food rows added:
+            ${data.foodRowsAdded || 0}
+            <br>
+
+            Workout rows added:
+            ${data.workoutRowsAdded || 0}
+            <br>
+
+            Wellness rows added:
+            ${data.wellnessRowsAdded || 0}
+            <br>
+
+            Total rows added:
+            ${data.rowsAdded || 0}
+
+          </div>
+
+        </div>
+
+      `;
+
+    }
+
+
+    // -----------------------------------------
+    // SUBMIT
+    // -----------------------------------------
+
+    submitButton.addEventListener(
+      "click",
+      async function() {
+
+        const userId =
+          userIdInput.value.trim();
+
+        const note =
+          noteInput.value.trim();
+
+
+        if (!note) {
+
+          showMessage(
+            "Please tell Luna what happened.",
+            true
+          );
+
+          return;
+
+        }
+
+
+        submitButton.disabled =
+          true;
+
+        submitButton.textContent =
+          "Processing...";
+
+
+        showMessage(
+          "Luna is processing your entry..."
+        );
+
+        results.innerHTML =
+          "";
+
+
+        try {
+
+          const response =
+            await fetch(
+              "/api/process",
+              {
+                method: "POST",
+
+                headers: {
+                  "Content-Type":
+                    "application/json"
+                },
+
+                body: JSON.stringify({
+                  userId:
+                    userId,
+
+                  note:
+                    note
+                })
+              }
+            );
+
+
+          const data =
+            await response.json();
+
+
+          if (!response.ok) {
+
+            throw new Error(
+              data.error ||
+              "Something went wrong."
+            );
+
+          }
+
+
+          // Render results
+
+          results.innerHTML =
+            renderFood(data.foods) +
+            renderWorkout(data.workouts) +
+            renderWellness(data.wellness) +
+            renderDebug(data);
+
+
+          showMessage(
+            "Logged successfully."
+          );
+
+
+        } catch (error) {
+
+          console.error(
+            error
+          );
+
+          showMessage(
+            error.message ||
+            "Something went wrong.",
+            true
+          );
+
+        } finally {
+
+          submitButton.disabled =
+            false;
+
+          submitButton.textContent =
+            "Log with Luna";
+
+        }
+
+      }
+    );
 
   </script>
 
