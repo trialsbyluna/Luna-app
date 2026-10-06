@@ -413,6 +413,7 @@
 
 <script>
 
+
 function escapeHtml(value) {
 
   return String(value ?? "")
@@ -561,10 +562,6 @@ async function processEntry() {
       .getElementById("note")
       .value = "";
 
-    /*
-     * Refresh dashboard automatically
-     * after a successful entry.
-     */
     await loadDashboard();
 
   } catch (error) {
@@ -595,10 +592,6 @@ function renderLatestEntry(data) {
 
   let html = "";
 
-
-  /*
-   * FOOD
-   */
 
   if (
     Array.isArray(data.foods) &&
@@ -682,10 +675,6 @@ function renderLatestEntry(data) {
 
   }
 
-
-  /*
-   * WORKOUT
-   */
 
   if (
     Array.isArray(data.workouts) &&
@@ -782,10 +771,6 @@ function renderLatestEntry(data) {
 
   }
 
-
-  /*
-   * WELLNESS
-   */
 
   if (
     Array.isArray(data.wellness) &&
@@ -922,8 +907,116 @@ function renderLatestEntry(data) {
 
 
 /*
- * DASHBOARD
+ * IMPORTANT DATE HANDLING
+ *
+ * Google Sheets dates can arrive in several
+ * formats. We preserve the calendar date and
+ * avoid converting it through UTC, which was
+ * causing 2026-10-06 to appear as 2026-10-05.
  */
+function dateKey(value) {
+
+  if (!value) {
+    return "";
+  }
+
+
+  /*
+   * If the value is already a YYYY-MM-DD
+   * string, use it exactly as provided.
+   */
+  if (
+    typeof value === "string"
+  ) {
+
+    const match =
+      value.match(
+        /^(\d{4})-(\d{2})-(\d{2})/
+      );
+
+    if (match) {
+
+      return (
+        match[1] +
+        "-" +
+        match[2] +
+        "-" +
+        match[3]
+      );
+
+    }
+
+  }
+
+
+  /*
+   * Handle Google Sheets / JavaScript
+   * Date values without converting to UTC.
+   */
+  const date =
+    new Date(value);
+
+  if (
+    Number.isNaN(
+      date.getTime()
+    )
+  ) {
+
+    return String(value);
+
+  }
+
+  const year =
+    date.getFullYear();
+
+  const month =
+    String(
+      date.getMonth() + 1
+    ).padStart(2, "0");
+
+  const day =
+    String(
+      date.getDate()
+    ).padStart(2, "0");
+
+  return (
+    year +
+    "-" +
+    month +
+    "-" +
+    day
+  );
+
+}
+
+
+function groupByDate(rows) {
+
+  const grouped = {};
+
+  rows.forEach(
+    function(row) {
+
+      const key =
+        dateKey(row["Date"]);
+
+      if (!key) {
+        return;
+      }
+
+      if (!grouped[key]) {
+        grouped[key] = [];
+      }
+
+      grouped[key].push(row);
+
+    }
+  );
+
+  return grouped;
+
+}
+
 
 async function loadDashboard() {
 
@@ -997,60 +1090,6 @@ async function loadDashboard() {
     );
 
   }
-
-}
-
-
-function dateKey(value) {
-
-  if (!value) {
-    return "";
-  }
-
-  const date =
-    new Date(value);
-
-  if (
-    Number.isNaN(
-      date.getTime()
-    )
-  ) {
-
-    return String(value);
-
-  }
-
-  return date
-    .toISOString()
-    .slice(0, 10);
-
-}
-
-
-function groupByDate(rows) {
-
-  const grouped = {};
-
-  rows.forEach(
-    function(row) {
-
-      const key =
-        dateKey(row["Date"]);
-
-      if (!key) {
-        return;
-      }
-
-      if (!grouped[key]) {
-        grouped[key] = [];
-      }
-
-      grouped[key].push(row);
-
-    }
-  );
-
-  return grouped;
 
 }
 
