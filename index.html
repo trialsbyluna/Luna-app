@@ -368,6 +368,117 @@
       padding: 8px 14px;
     }
 
+    /* Quick check-in */
+
+    .quick-checkin {
+      margin-top: 18px;
+      border: 1px solid #eee;
+      border-radius: 14px;
+      padding: 4px 16px;
+    }
+
+    .quick-checkin summary {
+      cursor: pointer;
+      font-weight: 600;
+      padding: 12px 0;
+    }
+
+    .quick-checkin[open] summary {
+      margin-bottom: 6px;
+    }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 0 12px;
+    }
+
+    .form-grid label {
+      font-size: 14px;
+    }
+
+    select {
+      width: 100%;
+      border: 1px solid #ddd;
+      border-radius: 10px;
+      padding: 12px;
+      margin-bottom: 16px;
+      background: white;
+      color: #222;
+      font: inherit;
+    }
+
+    .quick-checkin .top-actions {
+      margin-bottom: 14px;
+    }
+
+    /* Targets */
+
+    .target-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 14px;
+    }
+
+    .target-item {
+      background: #fafafa;
+      border: 1px solid #eee;
+      border-radius: 12px;
+      padding: 16px;
+    }
+
+    .target-numbers {
+      font-size: 22px;
+      font-weight: 700;
+      margin: 4px 0 10px;
+    }
+
+    .target-numbers .small {
+      font-weight: 400;
+    }
+
+    .progress {
+      height: 8px;
+      border-radius: 999px;
+      background: #ececf3;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      border-radius: 999px;
+      background: #5b6ee1;
+    }
+
+    .progress-fill.over {
+      background: #e0a23b;
+    }
+
+    .target-note {
+      margin-top: 8px;
+    }
+
+    .profile-summary {
+      margin-top: 14px;
+      line-height: 1.5;
+    }
+
+    .profile-form {
+      margin-top: 16px;
+      padding-top: 16px;
+      border-top: 1px solid #eee;
+    }
+
+    .notice {
+      background: #f3f5ff;
+      border: 1px solid #dfe4fb;
+      border-radius: 12px;
+      padding: 12px 14px;
+      font-size: 14px;
+      line-height: 1.5;
+      margin-bottom: 14px;
+    }
+
     @media (max-width: 600px) {
 
       .container {
@@ -478,7 +589,7 @@
 
     <textarea
       id="note"
-      placeholder="Example: I had two eggs and toast for breakfast."
+      placeholder="Example: Two eggs and toast for breakfast. Walked 6,000 steps. Slept 7 hours."
     ></textarea>
 
     <div class="voice-row">
@@ -521,6 +632,58 @@
 
     </div>
 
+    <details
+      id="quickCheckin"
+      class="quick-checkin"
+      open
+    >
+
+      <summary>
+        Quick check-in: steps, water, sleep, weight
+      </summary>
+
+      <div class="small" style="margin-bottom:12px;">
+        Fill in only what you know. Saved for the date selected above.
+      </div>
+
+      <div class="form-grid">
+
+        <div>
+          <label for="checkinSteps">Steps</label>
+          <input id="checkinSteps" type="number" inputmode="numeric" min="1" max="100000" placeholder="e.g. 6500">
+        </div>
+
+        <div>
+          <label for="checkinWater">Water (litres)</label>
+          <input id="checkinWater" type="number" inputmode="decimal" min="0.1" max="10" step="0.1" placeholder="e.g. 2.5">
+        </div>
+
+        <div>
+          <label for="checkinSleep">Sleep (hours)</label>
+          <input id="checkinSleep" type="number" inputmode="decimal" min="0.5" max="24" step="0.5" placeholder="e.g. 7">
+        </div>
+
+        <div>
+          <label for="checkinWeight">Weight (kg)</label>
+          <input id="checkinWeight" type="number" inputmode="decimal" min="25" max="300" step="0.1" placeholder="e.g. 72.5">
+        </div>
+
+      </div>
+
+      <div class="top-actions">
+
+        <button
+          type="button"
+          id="checkinButton"
+          onclick="saveQuickCheckin()"
+        >
+          Save check-in
+        </button>
+
+      </div>
+
+    </details>
+
     <div
       id="status"
       class="status"
@@ -549,6 +712,170 @@
     id="dashboard"
     class="dashboard"
   >
+
+    <!-- TODAY VS TARGETS -->
+
+    <div
+      id="targetsCard"
+      class="card"
+    >
+
+      <div class="day-header">
+
+        <div>
+
+          <h2 style="margin-bottom:4px;">
+            Today
+          </h2>
+
+          <div
+            id="targetsSubtitle"
+            class="small"
+          ></div>
+
+        </div>
+
+        <button
+          type="button"
+          id="editProfileButton"
+          class="secondary-button"
+          onclick="toggleProfileForm()"
+        >
+          Edit profile
+        </button>
+
+      </div>
+
+      <div id="targetsContent"></div>
+
+      <div
+        id="profileForm"
+        class="profile-form"
+        style="display:none;"
+      >
+
+        <h3 style="margin-top:0;">
+          Your profile
+        </h3>
+
+        <div class="small" style="margin-bottom:14px;">
+          Used to estimate how much you burn in a day and set your daily targets. Set goal weight lower to lose, higher to gain, or the same to maintain.
+        </div>
+
+        <div class="form-grid">
+
+          <div>
+            <label for="profileName">Name</label>
+            <input id="profileName" type="text" autocomplete="name" placeholder="Optional">
+          </div>
+
+          <div>
+            <label for="profileGender">Gender</label>
+            <select id="profileGender">
+              <option value="">Select</option>
+              <option value="Female">Female</option>
+              <option value="Male">Male</option>
+              <option value="Other">Other / prefer not to say</option>
+            </select>
+          </div>
+
+          <div>
+            <label for="profileAge">Age</label>
+            <input id="profileAge" type="number" inputmode="numeric" min="10" max="100" placeholder="e.g. 32">
+          </div>
+
+          <div>
+            <label for="profileHeight">Height (cm)</label>
+            <input id="profileHeight" type="number" inputmode="decimal" min="100" max="250" placeholder="e.g. 172">
+          </div>
+
+          <div>
+            <label for="profileWeight">Current weight (kg)</label>
+            <input id="profileWeight" type="number" inputmode="decimal" min="25" max="300" step="0.1" placeholder="e.g. 74">
+          </div>
+
+          <div>
+            <label for="profileGoalWeight">Goal weight (kg)</label>
+            <input id="profileGoalWeight" type="number" inputmode="decimal" min="25" max="300" step="0.1" placeholder="Same as current to maintain">
+          </div>
+
+          <div>
+            <label for="profileActivity">Activity level</label>
+            <select id="profileActivity">
+              <option value="">Select</option>
+              <option value="Sedentary">Sedentary: mostly sitting, little exercise</option>
+              <option value="Light">Light: exercise 1–3 days a week</option>
+              <option value="Moderate">Moderate: exercise 3–5 days a week</option>
+              <option value="Active">Active: hard exercise 6–7 days a week</option>
+            </select>
+          </div>
+
+          <div>
+            <label for="profileSteps">Daily steps goal</label>
+            <input id="profileSteps" type="number" inputmode="numeric" min="1000" max="50000" step="500" placeholder="8000">
+          </div>
+
+        </div>
+
+        <details class="quick-checkin" style="margin-top:0; margin-bottom:16px;">
+
+          <summary>More details (optional)</summary>
+
+          <div class="form-grid">
+
+            <div>
+              <label for="profileEmail">Email</label>
+              <input id="profileEmail" type="email" autocomplete="email" placeholder="Optional">
+            </div>
+
+            <div>
+              <label for="profileDiet">Dietary preference</label>
+              <select id="profileDiet">
+                <option value="">Select</option>
+                <option value="Vegetarian">Vegetarian</option>
+                <option value="Non-vegetarian">Non-vegetarian</option>
+                <option value="Eggetarian">Eggetarian</option>
+                <option value="Vegan">Vegan</option>
+                <option value="Jain">Jain</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+
+          </div>
+
+          <label for="profileInjuries">Injuries</label>
+          <input id="profileInjuries" type="text" placeholder="e.g. lower back, left knee">
+
+          <label for="profileMedical">Medical conditions</label>
+          <input id="profileMedical" type="text" placeholder="Anything Luna should keep in mind">
+
+        </details>
+
+        <div class="top-actions">
+
+          <button
+            type="button"
+            id="saveProfileButton"
+            onclick="saveProfile()"
+          >
+            Save profile
+          </button>
+
+          <button
+            type="button"
+            id="cancelProfileButton"
+            class="secondary-button"
+            onclick="toggleProfileForm(false)"
+          >
+            Cancel
+          </button>
+
+        </div>
+
+      </div>
+
+    </div>
+
 
     <div class="card">
 
@@ -1694,6 +2021,8 @@
     const filteredWorkouts = filterRowsByDates(workouts, dates);
     const filteredWellness = filterRowsByDates(wellness, dates);
 
+    renderTargets(data);
+
     renderDashboardSummary(filteredFoods, filteredWorkouts, filteredWellness, dates);
 
     if (typeof Chart === "undefined") {
@@ -1739,6 +2068,14 @@
     const averageProtein =
       foodDays.size ? totalProtein / foodDays.size : null;
 
+    const stepDays = getDailyWellness(wellness, dates)
+      .map(day => day.steps)
+      .filter(steps => steps !== null);
+
+    const averageSteps = stepDays.length
+      ? stepDays.reduce((sum, steps) => sum + steps, 0) / stepDays.length
+      : null;
+
     const metrics = [
       [
         "Avg calories per day logged",
@@ -1747,6 +2084,10 @@
       [
         "Avg protein per day logged",
         averageProtein === null ? "–" : formatNumber(Math.round(averageProtein)) + " g"
+      ],
+      [
+        "Avg steps per day logged",
+        averageSteps === null ? "–" : formatNumber(Math.round(averageSteps))
       ],
       [
         "Workout time",
@@ -1872,20 +2213,27 @@
 
     const daily = getDailyNutrition(foods, dates);
     const labels = daily.map(item => shortDate(item.date));
+    const targets = getTargets();
+
+    const calorieDatasets = [
+      {
+        label: "Calories (kcal)",
+        data: daily.map(item => item.calories),
+        tension: 0.3,
+        fill: false,
+        spanGaps: false
+      }
+    ];
+
+    if (targets.calories) {
+      calorieDatasets.push(targetLine("Target", targets.calories, dates.length));
+    }
 
     makeChart("nutritionCalories", "nutritionCaloriesCanvas", {
       type: "line",
       data: {
         labels: labels,
-        datasets: [
-          {
-            label: "Calories (kcal)",
-            data: daily.map(item => item.calories),
-            tension: 0.3,
-            fill: false,
-            spanGaps: false
-          }
-        ]
+        datasets: calorieDatasets
       },
       options: baseChartOptions
     });
@@ -2060,18 +2408,76 @@
       destroyChart("wellness");
       destroyChart("sleep");
 
-      container.innerHTML = `<div class="chart-empty">No wellness check-ins in this period.</div>`;
+      container.innerHTML = `<div class="chart-empty">No check-ins in this period. Use Quick check-in above to add steps, water, sleep or weight.</div>`;
 
       return;
 
     }
 
+    const daily = getDailyWellness(wellness, dates);
+    const labels = daily.map(item => shortDate(item.date));
+    const targets = getTargets();
+
+    const hasSteps = daily.some(item => item.steps !== null);
+    const hasWeight = daily.some(item => item.weight !== null);
+
     container.innerHTML =
+      chartCard("Steps", "stepsCanvas") +
+      (hasWeight ? chartCard("Weight (kg)", "weightCanvas") : "") +
       chartCard("Wellness ratings", "wellnessCanvas", true) +
       chartCard("Sleep & hydration", "sleepCanvas", true);
 
-    const daily = getDailyWellness(wellness, dates);
-    const labels = daily.map(item => shortDate(item.date));
+    const stepDatasets = [
+      { label: "Steps", data: daily.map(item => item.steps) }
+    ];
+
+    if (targets.steps) {
+      stepDatasets.push(targetLine("Goal", targets.steps, dates.length));
+    }
+
+    makeChart("steps", "stepsCanvas", {
+      type: "bar",
+      data: { labels: labels, datasets: stepDatasets },
+      options: baseChartOptions
+    });
+
+    if (!hasSteps) {
+      byId("stepsCanvas").parentElement.insertAdjacentHTML(
+        "beforebegin",
+        `<div class="small">No steps logged yet. Use Quick check-in, or say "walked 6,000 steps".</div>`
+      );
+    }
+
+    if (hasWeight) {
+
+      const weightDatasets = [
+        {
+          label: "Weight (kg)",
+          data: daily.map(item => item.weight),
+          tension: 0.3,
+          spanGaps: true
+        }
+      ];
+
+      if (targets.goalWeight) {
+        weightDatasets.push(targetLine("Goal weight", targets.goalWeight, dates.length));
+      }
+
+      makeChart("weight", "weightCanvas", {
+        type: "line",
+        data: { labels: labels, datasets: weightDatasets },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: { mode: "index", intersect: false }
+        }
+      });
+
+    } else {
+
+      destroyChart("weight");
+
+    }
 
     makeChart("wellness", "wellnessCanvas", {
       type: "line",
@@ -2175,6 +2581,10 @@
 
       const wellnessDay = mergeWellnessRows(dayWellness);
 
+      if (wellnessDay.steps !== null) {
+        parts.push(formatNumber(wellnessDay.steps) + " steps");
+      }
+
       if (wellnessDay.sleep !== null) {
         parts.push(formatNumber(wellnessDay.sleep) + " h sleep");
       }
@@ -2195,6 +2605,474 @@
     });
 
     container.innerHTML = html;
+
+  }
+
+
+  /*
+   * ---------------------------------------------
+   * TARGETS & PROFILE
+   *
+   * Targets are calculated by the Apps Script and
+   * stored in the profile tab (BMR, Maintenance Cal,
+   * Calorie Target, Protein Target, Steps Goal).
+   * ---------------------------------------------
+   */
+
+  function getTargets() {
+
+    const profile = dashboardData && dashboardData.profile;
+
+    if (!profile) {
+      return { calories: null, protein: null, steps: null, goalWeight: null };
+    }
+
+    return {
+      calories: numberOrNull(profile.calorieTarget),
+      protein: numberOrNull(profile.proteinTarget),
+      steps: numberOrNull(profile.stepsGoal),
+      goalWeight: numberOrNull(profile.goalWeight)
+    };
+
+  }
+
+
+  function targetLine(label, value, length) {
+
+    return {
+      type: "line",
+      label: label,
+      data: new Array(length).fill(value),
+      borderDash: [6, 6],
+      borderWidth: 1.5,
+      pointRadius: 0,
+      fill: false
+    };
+
+  }
+
+
+  function progressItem(label, value, target, unit, options = {}) {
+
+    const valueText = formatNumber(Math.round(value)) + (unit ? " " + unit : "");
+
+    if (!target) {
+
+      return `
+        <div class="target-item">
+          <div class="metric-label">${label}</div>
+          <div class="target-numbers">${valueText}</div>
+          <div class="small target-note">${options.emptyNote || ""}</div>
+        </div>
+      `;
+
+    }
+
+    const percent = Math.min(100, Math.round((value / target) * 100));
+    const difference = Math.round(target - value);
+    const isOver = options.overIsNotable && value > target * 1.05;
+
+    let note;
+
+    if (difference > 0) {
+      note = formatNumber(difference) + (unit ? " " + unit : "") + " to go";
+    } else if (isOver) {
+      note = formatNumber(-difference) + (unit ? " " + unit : "") + " above target";
+    } else {
+      note = options.reachedNote || "Target reached";
+    }
+
+    return `
+      <div class="target-item">
+        <div class="metric-label">${label}</div>
+        <div class="target-numbers">
+          ${formatNumber(Math.round(value))}
+          <span class="small">of ${formatNumber(target)}${unit ? " " + unit : ""}</span>
+        </div>
+        <div class="progress">
+          <div class="progress-fill${isOver ? " over" : ""}" style="width:${percent}%"></div>
+        </div>
+        <div class="small target-note">${note}</div>
+      </div>
+    `;
+
+  }
+
+
+  function goalLabel(goal) {
+
+    if (goal === "lose") return "Goal: lose weight";
+    if (goal === "gain") return "Goal: gain weight";
+    if (goal === "maintain") return "Goal: maintain weight";
+
+    return "";
+
+  }
+
+
+  function renderTargets(data) {
+
+    const profile = data.profile;
+    const content = byId("targetsContent");
+    const subtitle = byId("targetsSubtitle");
+    const editButton = byId("editProfileButton");
+
+    const today = todayKey();
+    const todaysFoods = (data.foods || []).filter(row => dateKey(row["Date"]) === today);
+    const todaysWellness = (data.wellness || []).filter(row => dateKey(row["Date"]) === today);
+
+    const calories = sumField(todaysFoods, "Calories");
+    const protein = sumField(todaysFoods, "Protein");
+    const wellnessToday = mergeWellnessRows(todaysWellness);
+    const steps = wellnessToday.steps || 0;
+
+    if (!profile) {
+
+      subtitle.textContent = "Add your profile to get daily targets.";
+      editButton.textContent = "Set up profile";
+
+      content.innerHTML = `
+        <div class="notice">
+          Add your height, weight and goal once, and Luna will set a daily calorie,
+          protein and steps target for you.
+        </div>
+        <div class="target-grid">
+          ${progressItem("Calories today", calories, null, "kcal")}
+          ${progressItem("Protein today", protein, null, "g")}
+          ${progressItem("Steps today", steps, 8000, "", { reachedNote: "Goal reached" })}
+        </div>
+      `;
+
+      return;
+
+    }
+
+    editButton.textContent = "Edit profile";
+
+    const targets = getTargets();
+    const parts = [goalLabel(profile.goal)];
+
+    if (profile.maintenance) {
+      parts.push("Maintenance about " + formatNumber(profile.maintenance) + " kcal");
+    }
+
+    subtitle.textContent = parts.filter(Boolean).join(" · ");
+
+    let html = "";
+
+    if (profile.note) {
+      html += `<div class="notice">${escapeHtml(profile.note)}</div>`;
+    }
+
+    html += `<div class="target-grid">`;
+
+    html += progressItem("Calories today", calories, targets.calories, "kcal", {
+      overIsNotable: true,
+      emptyNote: targets.calories === null && profile.isAdult === false ? "" : "Add your profile details to see a target."
+    });
+
+    html += progressItem("Protein today", protein, targets.protein, "g", {
+      reachedNote: "Protein target reached"
+    });
+
+    html += progressItem("Steps today", steps, targets.steps, "", {
+      reachedNote: "Steps goal reached"
+    });
+
+    const weight = numberOrNull(profile.currentWeight);
+
+    if (weight) {
+
+      const goalWeight = targets.goalWeight;
+      let weightNote = "Current weight";
+
+      if (goalWeight && Math.abs(goalWeight - weight) >= 0.5) {
+        weightNote =
+          "Goal " + formatNumber(goalWeight) + " kg · " +
+          formatNumber(Math.abs(Math.round((goalWeight - weight) * 10) / 10)) + " kg to go";
+      } else if (goalWeight) {
+        weightNote = "At your goal weight";
+      }
+
+      html += `
+        <div class="target-item">
+          <div class="metric-label">Weight</div>
+          <div class="target-numbers">${formatNumber(weight)} <span class="small">kg</span></div>
+          <div class="small target-note">${weightNote}</div>
+        </div>
+      `;
+
+    }
+
+    html += `</div>`;
+
+    if (targets.calories) {
+      html += `
+        <div class="small profile-summary">
+          Your calorie target already includes your usual exercise, so workout calories aren't added on top.
+          Targets are estimates from a standard formula. Adjust with a doctor or dietitian if you have a medical condition.
+        </div>
+      `;
+    }
+
+    content.innerHTML = html;
+
+  }
+
+
+  function selectMatching(selectId, text, rules) {
+
+    const select = byId(selectId);
+    const value = String(text || "").trim();
+
+    if (!value) {
+      select.value = "";
+      return;
+    }
+
+    const exact = [...select.options].find(
+      option => option.value.toLowerCase() === value.toLowerCase()
+    );
+
+    if (exact) {
+      select.value = exact.value;
+      return;
+    }
+
+    for (const rule of rules) {
+      if (rule[0].test(value)) {
+        select.value = rule[1];
+        return;
+      }
+    }
+
+    select.value = "";
+
+  }
+
+
+  function fillProfileForm(profile) {
+
+    const p = profile || {};
+
+    byId("profileName").value = p.name || "";
+    byId("profileAge").value = p.age || "";
+    byId("profileHeight").value = p.heightCm || "";
+    byId("profileWeight").value = p.currentWeight || "";
+    byId("profileGoalWeight").value = p.goalWeight || "";
+    byId("profileSteps").value = p.stepsGoal || 8000;
+    byId("profileEmail").value = p.email || "";
+    byId("profileInjuries").value = p.injuries || "";
+    byId("profileMedical").value = p.medical || "";
+
+    selectMatching("profileGender", p.gender, [
+      [/^m/i, "Male"],
+      [/^f/i, "Female"],
+      [/./, "Other"]
+    ]);
+
+    selectMatching("profileActivity", p.activityLevel, [
+      [/sedent|little|desk/i, "Sedentary"],
+      [/light/i, "Light"],
+      [/moder/i, "Moderate"],
+      [/very|extra|hard|active/i, "Active"]
+    ]);
+
+    selectMatching("profileDiet", p.dietaryPreference, [
+      [/vegan/i, "Vegan"],
+      [/jain/i, "Jain"],
+      [/egg/i, "Eggetarian"],
+      [/non/i, "Non-vegetarian"],
+      [/veg/i, "Vegetarian"],
+      [/./, "Other"]
+    ]);
+
+  }
+
+
+  function toggleProfileForm(show) {
+
+    const form = byId("profileForm");
+    const isOpen = form.style.display !== "none";
+    const open = typeof show === "boolean" ? show : !isOpen;
+
+    if (open) {
+      fillProfileForm(dashboardData && dashboardData.profile);
+    }
+
+    form.style.display = open ? "block" : "none";
+
+    if (open) {
+      form.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+
+  }
+
+
+  async function saveProfile() {
+
+    const userId = byId("userId").value.trim();
+    const button = byId("saveProfileButton");
+
+    if (!userId) {
+      showStatus("Please enter a User ID first.");
+      return;
+    }
+
+    const profile = {
+      name: byId("profileName").value.trim(),
+      gender: byId("profileGender").value,
+      age: byId("profileAge").value,
+      heightCm: byId("profileHeight").value,
+      currentWeight: byId("profileWeight").value,
+      goalWeight: byId("profileGoalWeight").value || byId("profileWeight").value,
+      activityLevel: byId("profileActivity").value,
+      stepsGoal: byId("profileSteps").value || 8000,
+      email: byId("profileEmail").value.trim(),
+      dietaryPreference: byId("profileDiet").value,
+      injuries: byId("profileInjuries").value.trim(),
+      medical: byId("profileMedical").value.trim()
+    };
+
+    button.disabled = true;
+    button.textContent = "Saving...";
+
+    try {
+
+      const response = await fetch(
+        "/api/profile",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ userId: userId, profile: profile })
+        }
+      );
+
+      const data = await readJson(response);
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || "Unable to save profile.");
+      }
+
+      rememberUserId(userId);
+
+      if (!dashboardData) {
+        dashboardData = { success: true, userId: userId, foods: [], workouts: [], wellness: [] };
+      }
+
+      dashboardData.profile = data.profile;
+
+      toggleProfileForm(false);
+
+      renderDashboard(dashboardData);
+
+      showStatus("Profile saved. Your targets are updated.", true, 4000);
+
+      byId("targetsCard").scrollIntoView({ behavior: "smooth", block: "start" });
+
+    } catch (error) {
+
+      showStatus(error.message || "Unable to save profile.");
+
+    } finally {
+
+      button.disabled = false;
+      button.textContent = "Save profile";
+
+    }
+
+  }
+
+
+  /*
+   * ---------------------------------------------
+   * QUICK CHECK-IN
+   * Steps, water, sleep and weight, saved without
+   * going through the AI.
+   * ---------------------------------------------
+   */
+
+  async function saveQuickCheckin() {
+
+    const userId = byId("userId").value.trim();
+    const button = byId("checkinButton");
+    const entryDate = getEntryDate();
+
+    if (!userId) {
+      showStatus("Please enter a User ID.");
+      return;
+    }
+
+    const checkin = {
+      steps: byId("checkinSteps").value,
+      water: byId("checkinWater").value,
+      sleep: byId("checkinSleep").value,
+      weight: byId("checkinWeight").value
+    };
+
+    if (!checkin.steps && !checkin.water && !checkin.sleep && !checkin.weight) {
+      showStatus("Fill in at least one of steps, water, sleep or weight.");
+      return;
+    }
+
+    button.disabled = true;
+    button.textContent = "Saving...";
+
+    let saved = false;
+
+    try {
+
+      const response = await fetch(
+        "/api/process",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            userId: userId,
+            date: entryDate,
+            checkin: checkin
+          })
+        }
+      );
+
+      const data = await readJson(response);
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || "Unable to save check-in.");
+      }
+
+      saved = true;
+
+      rememberUserId(userId);
+
+      const savedDate = data.entryDate || entryDate;
+
+      renderLatestEntry(data, savedDate);
+
+      ["checkinSteps", "checkinWater", "checkinSleep", "checkinWeight"].forEach(function(id) {
+        byId(id).value = "";
+      });
+
+      showStatus(
+        "Check-in saved for " + friendlyDate(savedDate).toLowerCase() + ".",
+        true,
+        4000
+      );
+
+    } catch (error) {
+
+      showStatus(error.message || "Unable to save check-in.");
+
+    } finally {
+
+      button.disabled = false;
+      button.textContent = "Save check-in";
+
+    }
+
+    if (saved) {
+      loadDashboard({ quiet: true });
+    }
 
   }
 
