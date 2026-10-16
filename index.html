@@ -84,6 +84,8 @@
       border-radius: 10px;
       padding: 12px;
       margin-bottom: 16px;
+      background: white;
+      color: #222;
     }
 
     textarea {
@@ -182,13 +184,6 @@
       display: none;
     }
 
-    .day-card {
-      border: 1px solid #eee;
-      border-radius: 14px;
-      padding: 18px;
-      margin-bottom: 14px;
-    }
-
     .day-header {
       display: flex;
       justify-content: space-between;
@@ -196,11 +191,6 @@
       align-items: center;
       flex-wrap: wrap;
       margin-bottom: 14px;
-    }
-
-    .day-date {
-      font-weight: 700;
-      font-size: 18px;
     }
 
     .top-actions {
@@ -301,6 +291,83 @@
       line-height: 1.6;
     }
 
+    /* Entry date */
+
+    .date-row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+      margin-bottom: 16px;
+    }
+
+    .date-row input {
+      width: auto;
+      min-width: 170px;
+      margin-bottom: 0;
+    }
+
+    .chip {
+      background: #eee;
+      color: #222;
+      padding: 10px 14px;
+    }
+
+    .chip.active {
+      background: #222;
+      color: white;
+    }
+
+    .missed-banner {
+      display: none;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+      background: #fff8e6;
+      border: 1px solid #f5e1a8;
+      border-radius: 12px;
+      padding: 12px 14px;
+      margin-bottom: 16px;
+      font-size: 14px;
+    }
+
+    .missed-banner button {
+      padding: 8px 14px;
+    }
+
+    .entry-date-note {
+      margin-bottom: 14px;
+    }
+
+    /* Recent days */
+
+    .day-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      border: 1px solid #eee;
+      border-radius: 14px;
+      padding: 14px 16px;
+      margin-bottom: 10px;
+    }
+
+    .day-row.empty {
+      background: #fafafa;
+    }
+
+    .day-date {
+      font-weight: 700;
+      font-size: 16px;
+      margin-bottom: 4px;
+    }
+
+    .day-row button {
+      padding: 8px 14px;
+    }
+
     @media (max-width: 600px) {
 
       .container {
@@ -352,7 +419,58 @@
       id="userId"
       type="text"
       placeholder="e.g. Nemo"
+      autocomplete="username"
     >
+
+    <label for="entryDate">
+      Date
+    </label>
+
+    <div class="date-row">
+
+      <input
+        id="entryDate"
+        type="date"
+      >
+
+      <button
+        type="button"
+        id="chipToday"
+        class="chip"
+        onclick="setEntryDay(0)"
+      >
+        Today
+      </button>
+
+      <button
+        type="button"
+        id="chipYesterday"
+        class="chip"
+        onclick="setEntryDay(-1)"
+      >
+        Yesterday
+      </button>
+
+    </div>
+
+    <div
+      id="missedBanner"
+      class="missed-banner"
+    >
+
+      <span>
+        Nothing logged for yesterday yet.
+      </span>
+
+      <button
+        type="button"
+        class="secondary-button"
+        onclick="setEntryDay(-1)"
+      >
+        Log for yesterday
+      </button>
+
+    </div>
 
     <label for="note">
       What would you like to log?
@@ -366,6 +484,7 @@
     <div class="voice-row">
 
       <button
+        type="button"
         id="voiceButton"
         class="voice-button"
         onclick="toggleVoice()"
@@ -377,7 +496,7 @@
         id="voiceHelp"
         class="voice-help"
       >
-        Tap Speak and describe your food, workout or wellness update.
+        Tap Speak and describe your food, workout or wellness update. Tap Stop when you're done.
       </span>
 
     </div>
@@ -385,6 +504,7 @@
     <div class="top-actions">
 
       <button
+        type="button"
         id="submitButton"
         onclick="processEntry()"
       >
@@ -392,6 +512,7 @@
       </button>
 
       <button
+        type="button"
         class="secondary-button"
         onclick="loadDashboard()"
       >
@@ -449,6 +570,7 @@
         <div class="range-controls">
 
           <button
+            type="button"
             id="range7"
             class="range-button active"
             onclick="setDashboardRange(7)"
@@ -457,6 +579,7 @@
           </button>
 
           <button
+            type="button"
             id="range30"
             class="range-button"
             onclick="setDashboardRange(30)"
@@ -465,6 +588,7 @@
           </button>
 
           <button
+            type="button"
             class="secondary-button"
             onclick="loadDashboard()"
           >
@@ -505,6 +629,7 @@
         </div>
 
         <button
+          type="button"
           id="recommendButton"
           onclick="getRecommendations()"
         >
@@ -582,136 +707,426 @@
 <script>
 
   /*
-   * Current dashboard data.
+   * ---------------------------------------------
+   * STATE
+   * ---------------------------------------------
    */
+
   let dashboardData = null;
 
   let dashboardRange = 7;
 
   let recommendationData = null;
 
-  let nutritionCaloriesChart = null;
-  let nutritionMacrosChart = null;
-  let workoutCaloriesChart = null;
-  let workoutMinutesChart = null;
-  let wellnessChart = null;
-  let sleepChart = null;
+  const charts = {};
+
+  const USER_ID_STORAGE_KEY = "luna.userId";
+
+
+  function byId(id) {
+    return document.getElementById(id);
+  }
 
 
   /*
-   * Voice recognition.
+   * ---------------------------------------------
+   * DATES
    *
-   * Uses the browser's built-in speech recognition
-   * where supported.
+   * Every date in the app is a plain
+   * "YYYY-MM-DD" string in local (India) time.
+   * ---------------------------------------------
    */
+
+  function pad(number) {
+    return String(number).padStart(2, "0");
+  }
+
+
+  function dateToKey(date) {
+    return (
+      date.getFullYear() +
+      "-" + pad(date.getMonth() + 1) +
+      "-" + pad(date.getDate())
+    );
+  }
+
+
+  function todayKey() {
+    return dateToKey(new Date());
+  }
+
+
+  function keyToDate(key) {
+    const parts = key.split("-").map(Number);
+    return new Date(parts[0], parts[1] - 1, parts[2]);
+  }
+
+
+  function addDaysToKey(key, days) {
+    const date = keyToDate(key);
+    date.setDate(date.getDate() + days);
+    return dateToKey(date);
+  }
+
+
+  /*
+   * The last N calendar days, ending today,
+   * oldest first. Days with no entries are
+   * included, so gaps stay visible.
+   */
+  function lastNDays(count) {
+
+    const today = todayKey();
+    const days = [];
+
+    for (let i = count - 1; i >= 0; i--) {
+      days.push(addDaysToKey(today, -i));
+    }
+
+    return days;
+
+  }
+
+
+  function friendlyDate(key) {
+
+    if (!key) {
+      return "";
+    }
+
+    const today = todayKey();
+
+    if (key === today) {
+      return "Today";
+    }
+
+    if (key === addDaysToKey(today, -1)) {
+      return "Yesterday";
+    }
+
+    return keyToDate(key).toLocaleDateString(
+      "en-IN",
+      {
+        weekday: "short",
+        day: "numeric",
+        month: "short"
+      }
+    );
+
+  }
+
+
+  function shortDate(key) {
+
+    if (!key) {
+      return "";
+    }
+
+    return keyToDate(key).toLocaleDateString(
+      "en-IN",
+      {
+        day: "numeric",
+        month: "short"
+      }
+    );
+
+  }
+
+
+  /*
+   * Google Sheets dates arrive as "YYYY-MM-DD"
+   * from Apps Script. Older formats are handled
+   * without converting through UTC.
+   */
+  function dateKey(value) {
+
+    if (!value) {
+      return "";
+    }
+
+    if (typeof value === "string") {
+
+      const match = value.match(/^(\d{4})-(\d{2})-(\d{2})/);
+
+      if (match) {
+        return match[1] + "-" + match[2] + "-" + match[3];
+      }
+
+    }
+
+    const date = new Date(value);
+
+    if (Number.isNaN(date.getTime())) {
+      return String(value);
+    }
+
+    return dateToKey(date);
+
+  }
+
+
+  function groupByDate(rows) {
+
+    const grouped = {};
+
+    rows.forEach(function(row) {
+
+      const key = dateKey(row["Date"]);
+
+      if (!key) {
+        return;
+      }
+
+      if (!grouped[key]) {
+        grouped[key] = [];
+      }
+
+      grouped[key].push(row);
+
+    });
+
+    return grouped;
+
+  }
+
+
+  /*
+   * ---------------------------------------------
+   * ENTRY DATE PICKER
+   * ---------------------------------------------
+   */
+
+  function getEntryDate() {
+
+    const input = byId("entryDate");
+    const today = todayKey();
+
+    if (!input.value || input.value > today) {
+      input.value = today;
+    }
+
+    return input.value;
+
+  }
+
+
+  function setEntryDay(offset) {
+
+    byId("entryDate").value = addDaysToKey(todayKey(), offset);
+
+    updateEntryDateUI();
+
+    byId("note").focus();
+
+  }
+
+
+  function logForDate(key) {
+
+    byId("entryDate").value = key;
+
+    updateEntryDateUI();
+
+    window.scrollTo({ top: 0, behavior: "smooth" });
+
+    byId("note").focus();
+
+  }
+
+
+  function updateEntryDateUI() {
+
+    const input = byId("entryDate");
+    const today = todayKey();
+    const yesterday = addDaysToKey(today, -1);
+
+    input.max = today;
+
+    const selected = getEntryDate();
+
+    byId("chipToday").classList.toggle("active", selected === today);
+    byId("chipYesterday").classList.toggle("active", selected === yesterday);
+
+    byId("submitButton").textContent =
+      selected === today
+        ? "Log entry"
+        : "Log for " + friendlyDate(selected).toLowerCase();
+
+    updateMissedBanner();
+
+  }
+
+
+  /*
+   * Shows "Nothing logged for yesterday" when
+   * yesterday has no entries at all and the user
+   * is still logging for today.
+   */
+  function updateMissedBanner() {
+
+    const banner = byId("missedBanner");
+
+    if (!dashboardData) {
+      banner.style.display = "none";
+      return;
+    }
+
+    const yesterday = addDaysToKey(todayKey(), -1);
+
+    const hasYesterday = []
+      .concat(dashboardData.foods || [])
+      .concat(dashboardData.workouts || [])
+      .concat(dashboardData.wellness || [])
+      .some(row => dateKey(row["Date"]) === yesterday);
+
+    const loggingToday = byId("entryDate").value === todayKey();
+
+    banner.style.display =
+      !hasYesterday && loggingToday ? "flex" : "none";
+
+  }
+
+
+  /*
+   * ---------------------------------------------
+   * VOICE INPUT
+   *
+   * Keeps listening through pauses until the
+   * user taps Stop (or after ~15 seconds of
+   * silence). Spoken text is added to whatever
+   * is already in the box, not replaced.
+   * ---------------------------------------------
+   */
+
   const SpeechRecognition =
     window.SpeechRecognition ||
     window.webkitSpeechRecognition;
 
-  let recognition = null;
+  // Android Chrome repeats words in continuous mode,
+  // so there we listen in short bursts and restart.
+  const isAndroid = /Android/i.test(navigator.userAgent);
 
-  let isListening = false;
+  const SILENCE_STOP_MS = 15000;
+
+  let recognition = null;
+  let wantListening = false;
+  let voiceBaseText = "";
+  let voiceFinalText = "";
+  let lastSpeechAt = 0;
+
+
+  function joinText(first, second) {
+
+    const a = String(first || "").trim();
+    const b = String(second || "").trim();
+
+    if (!a) return b;
+    if (!b) return a;
+
+    return a + " " + b;
+
+  }
+
+
+  function setVoiceUI(listening) {
+
+    const button = byId("voiceButton");
+
+    button.textContent = listening ? "⏹️ Stop" : "🎙️ Speak";
+
+    button.classList.toggle("recording", listening);
+
+    byId("voiceHelp").textContent = listening
+      ? "Listening... pause as much as you like. Tap Stop when you're done."
+      : "Tap Speak and describe your food, workout or wellness update. Tap Stop when you're done.";
+
+  }
 
 
   if (SpeechRecognition) {
 
-    recognition =
-      new SpeechRecognition();
+    recognition = new SpeechRecognition();
 
-    recognition.continuous = false;
+    recognition.continuous = !isAndroid;
     recognition.interimResults = true;
     recognition.lang = "en-IN";
 
-    recognition.onstart =
-      function() {
+    recognition.onstart = function() {
+      setVoiceUI(true);
+    };
 
-        isListening = true;
+    recognition.onresult = function(event) {
 
-        const button =
-          document.getElementById(
-            "voiceButton"
-          );
+      lastSpeechAt = Date.now();
 
-        button.textContent =
-          "⏹️ Stop";
+      let interim = "";
 
-        button.classList.add(
-          "recording"
-        );
+      for (let i = event.resultIndex; i < event.results.length; i++) {
 
-        document.getElementById(
-          "voiceHelp"
-        ).textContent =
-          "Listening... speak naturally.";
+        const text = event.results[i][0].transcript;
 
-        showStatus(
-          "Listening for your Luna entry..."
-        );
-
-      };
-
-
-    recognition.onresult =
-      function(event) {
-
-        let transcript = "";
-
-        for (
-          let i = event.resultIndex;
-          i < event.results.length;
-          i++
-        ) {
-
-          transcript +=
-            event.results[i][0].transcript;
-
+        if (event.results[i].isFinal) {
+          voiceFinalText = joinText(voiceFinalText, text);
+        } else {
+          interim = joinText(interim, text);
         }
 
-        const note =
-          document.getElementById(
-            "note"
-          );
+      }
 
-        note.value =
-          transcript.trim();
+      byId("note").value =
+        joinText(joinText(voiceBaseText, voiceFinalText), interim);
 
-      };
+    };
 
+    recognition.onerror = function(event) {
 
-    recognition.onerror =
-      function(event) {
+      // "no-speech" and "aborted" happen during normal
+      // pauses; the end handler restarts listening.
+      if (event.error === "no-speech" || event.error === "aborted") {
+        return;
+      }
 
+      wantListening = false;
+
+      if (
+        event.error === "not-allowed" ||
+        event.error === "service-not-allowed"
+      ) {
         showStatus(
-          "Voice input error: " +
-          (event.error || "Unable to use microphone.")
+          "Microphone access is blocked. Allow the microphone for this site in your browser settings."
         );
+        return;
+      }
 
-      };
+      showStatus(
+        "Voice input error: " + (event.error || "Unable to use microphone.")
+      );
 
+    };
 
-    recognition.onend =
-      function() {
+    recognition.onend = function() {
 
-        isListening = false;
+      const stillTalking =
+        Date.now() - lastSpeechAt < SILENCE_STOP_MS;
 
-        const button =
-          document.getElementById(
-            "voiceButton"
-          );
+      if (wantListening && stillTalking) {
 
-        button.textContent =
-          "🎙️ Speak";
+        try {
+          recognition.start();
+          return;
+        } catch (error) {
+          // Fall through and stop.
+        }
 
-        button.classList.remove(
-          "recording"
-        );
+      }
 
-        document.getElementById(
-          "voiceHelp"
-        ).textContent =
-          "Tap Speak and describe your food, workout or wellness update.";
+      wantListening = false;
 
-      };
+      byId("note").value = joinText(voiceBaseText, voiceFinalText);
+
+      setVoiceUI(false);
+
+    };
 
   }
 
@@ -728,19 +1143,27 @@
 
     }
 
-    if (isListening) {
+    if (wantListening) {
 
+      wantListening = false;
       recognition.stop();
 
       return;
 
     }
 
+    voiceBaseText = byId("note").value.trim();
+    voiceFinalText = "";
+    lastSpeechAt = Date.now();
+    wantListening = true;
+
     try {
 
       recognition.start();
 
     } catch (error) {
+
+      wantListening = false;
 
       showStatus(
         "Unable to start voice input. Please try again."
@@ -750,6 +1173,22 @@
 
   }
 
+
+  function stopVoiceIfListening() {
+
+    if (recognition && wantListening) {
+      wantListening = false;
+      recognition.stop();
+    }
+
+  }
+
+
+  /*
+   * ---------------------------------------------
+   * HELPERS
+   * ---------------------------------------------
+   */
 
   function escapeHtml(value) {
 
@@ -765,957 +1204,449 @@
 
   function formatNumber(value) {
 
-    if (
-      value === null ||
-      value === undefined ||
-      value === ""
-    ) {
-
+    if (value === null || value === undefined || value === "") {
       return "";
-
     }
 
-    const number =
-      Number(value);
+    const number = Number(value);
 
     if (Number.isNaN(number)) {
-
       return escapeHtml(value);
-
     }
 
     return number.toLocaleString(
-      undefined,
-      {
-        maximumFractionDigits: 1
-      }
+      "en-IN",
+      { maximumFractionDigits: 1 }
     );
 
   }
 
 
-  function showStatus(
-    message,
-    show = true
-  ) {
+  function numberOrNull(value) {
 
-    const status =
-      document.getElementById(
-        "status"
-      );
-
-    status.textContent =
-      message;
-
-    status.style.display =
-      show ? "block" : "none";
-
-  }
-
-
-  async function getRecommendations() {
-
-    const userId =
-      document
-        .getElementById("userId")
-        .value
-        .trim();
-
-    const button =
-      document.getElementById(
-        "recommendButton"
-      );
-
-    const card =
-      document.getElementById(
-        "recommendationsCard"
-      );
-
-    const content =
-      document.getElementById(
-        "recommendationContent"
-      );
-
-    if (!userId) {
-
-      showStatus(
-        "Please enter a User ID first."
-      );
-
-      return;
-
+    if (value === null || value === undefined || value === "") {
+      return null;
     }
 
-    button.disabled = true;
+    const number = Number(value);
 
-    button.textContent =
-      "Luna is thinking...";
-
-    card.style.display =
-      "block";
-
-    content.innerHTML = `
-      <div class="chart-empty">
-        Looking at your recent patterns...
-      </div>
-    `;
-
-    try {
-
-      const response =
-        await fetch(
-          "/api/recommend",
-          {
-
-            method: "POST",
-
-            headers: {
-              "Content-Type":
-                "application/json"
-            },
-
-            body: JSON.stringify({
-              userId: userId
-            })
-
-          }
-        );
-
-      const data =
-        await response.json();
-
-      if (
-        !response.ok ||
-        !data.success
-      ) {
-
-        throw new Error(
-          data.error ||
-          "Unable to generate insights."
-        );
-
-      }
-
-      recommendationData =
-        data.recommendations;
-
-      renderRecommendations(
-        recommendationData
-      );
-
-      showStatus(
-        "Luna's insights are ready."
-      );
-
-    } catch (error) {
-
-      content.innerHTML = `
-        <div class="chart-empty">
-          ${escapeHtml(
-            error.message ||
-            "Unable to generate insights."
-          )}
-        </div>
-      `;
-
-      showStatus(
-        error.message ||
-        "Unable to generate insights."
-      );
-
-    } finally {
-
-      button.disabled = false;
-
-      button.textContent =
-        "✨ Get Luna's insights";
-
-    }
-
-  }
-
-
-  function renderRecommendations(
-    recommendations
-  ) {
-
-    const content =
-      document.getElementById(
-        "recommendationContent"
-      );
-
-    if (!recommendations) {
-
-      content.innerHTML = `
-        <div class="chart-empty">
-          No recommendations available yet.
-        </div>
-      `;
-
-      return;
-
-    }
-
-    let html = "";
-
-    if (recommendations.summary) {
-
-      html += `
-        <div class="recommendation-section">
-
-          <h3>Summary</h3>
-
-          <div class="recommendation-summary">
-            ${escapeHtml(
-              recommendations.summary
-            )}
-          </div>
-
-        </div>
-      `;
-
-    }
-
-    function addList(
-      title,
-      items
-    ) {
-
-      if (
-        !Array.isArray(items) ||
-        !items.length
-      ) {
-
-        return "";
-
-      }
-
-      return `
-        <div class="recommendation-section">
-
-          <h3>${title}</h3>
-
-          <ul class="recommendation-list">
-
-            ${items
-              .slice(0, 3)
-              .map(
-                item =>
-                  `<li>${escapeHtml(item)}</li>`
-              )
-              .join("")}
-
-          </ul>
-
-        </div>
-      `;
-
-    }
-
-    html += addList(
-      "What you're doing well",
-      recommendations.positives
-    );
-
-    html += addList(
-      "Patterns to notice",
-      recommendations.patterns
-    );
-
-    html += addList(
-      "Suggestions",
-      recommendations.suggestions
-    );
-
-    if (!html) {
-
-      html = `
-        <div class="chart-empty">
-          No recommendations available yet.
-        </div>
-      `;
-
-    }
-
-    content.innerHTML =
-      html;
-
-  }
-
-
-  async function processEntry() {
-
-    const userId =
-      document
-        .getElementById("userId")
-        .value
-        .trim();
-
-    const note =
-      document
-        .getElementById("note")
-        .value
-        .trim();
-
-    const button =
-      document
-        .getElementById("submitButton");
-
-
-    if (!userId) {
-
-      showStatus(
-        "Please enter a User ID."
-      );
-
-      return;
-
-    }
-
-
-    if (!note) {
-
-      showStatus(
-        "Please enter something to log."
-      );
-
-      return;
-
-    }
-
-
-    button.disabled = true;
-
-    showStatus(
-      "Luna is processing your entry..."
-    );
-
-
-    try {
-
-      const response =
-        await fetch(
-          "/api/process",
-          {
-
-            method: "POST",
-
-            headers: {
-              "Content-Type":
-                "application/json"
-            },
-
-            body: JSON.stringify({
-
-              userId: userId,
-
-              note: note
-
-            })
-
-          }
-        );
-
-
-      const data =
-        await response.json();
-
-
-      if (
-        !response.ok ||
-        !data.success
-      ) {
-
-        throw new Error(
-          data.error ||
-          "Processing failed."
-        );
-
-      }
-
-
-      renderLatestEntry(data);
-
-
-      showStatus(
-        "Logged successfully."
-      );
-
-
-      document
-        .getElementById("note")
-        .value = "";
-
-
-      await loadDashboard();
-
-    }
-
-
-    catch (error) {
-
-      showStatus(
-        error.message ||
-        "Something went wrong."
-      );
-
-    }
-
-
-    finally {
-
-      button.disabled = false;
-
-    }
-
-  }
-
-
-  function renderLatestEntry(data) {
-
-    const results =
-      document.getElementById(
-        "results"
-      );
-
-    const content =
-      document.getElementById(
-        "resultContent"
-      );
-
-    let html = "";
-
-
-    if (
-      Array.isArray(data.foods) &&
-      data.foods.length
-    ) {
-
-      html += `
-        <h3>Food</h3>
-      `;
-
-
-      let totalCalories = 0;
-
-
-      data.foods.forEach(
-        function(food) {
-
-          totalCalories +=
-            Number(food.calories) || 0;
-
-
-          html += `
-            <div class="food-row">
-
-              <strong>
-                ${escapeHtml(
-                  food.food_item
-                )}
-              </strong>
-
-              <div class="small">
-
-                ${formatNumber(
-                  food.quantity_grams
-                )} g
-
-                ·
-
-                ${escapeHtml(
-                  food.meal_type
-                )}
-
-                ·
-
-                ${formatNumber(
-                  food.calories
-                )} kcal
-
-              </div>
-
-              ${
-                food.notes
-                ? `
-                  <div class="small">
-                    ${escapeHtml(
-                      food.notes
-                    )}
-                  </div>
-                `
-                : ""
-              }
-
-            </div>
-          `;
-
-        }
-      );
-
-
-      html += `
-        <div class="metric">
-
-          <div class="metric-label">
-            Total calories
-          </div>
-
-          <div class="metric-value">
-            ${formatNumber(
-              totalCalories
-            )} kcal
-          </div>
-
-        </div>
-      `;
-
-    }
-
-
-    if (
-      Array.isArray(data.workouts) &&
-      data.workouts.length
-    ) {
-
-      html += `
-        <h3 class="section-title">
-          Workout
-        </h3>
-      `;
-
-
-      data.workouts.forEach(
-        function(workout) {
-
-          const isCardio =
-            Number(
-              workout.duration_mins
-            ) > 0;
-
-
-          let details = "";
-
-
-          if (isCardio) {
-
-            details =
-              `${formatNumber(
-                workout.duration_mins
-              )} min`;
-
-          } else {
-
-            details =
-              `Set ${
-                formatNumber(
-                  workout.set_number
-                )
-              } · ${
-                formatNumber(
-                  workout.reps_completed
-                )
-              } reps · ${
-                formatNumber(
-                  workout.weight_value
-                )
-              } ${
-                escapeHtml(
-                  workout.weight_type
-                )
-              }`;
-
-          }
-
-
-          html += `
-            <div class="workout-row">
-
-              <strong>
-                ${escapeHtml(
-                  workout.exercise
-                )}
-              </strong>
-
-              <div class="small">
-                ${details}
-              </div>
-
-              ${
-                workout.notes
-                ? `
-                  <div class="small">
-                    ${escapeHtml(
-                      workout.notes
-                    )}
-                  </div>
-                `
-                : ""
-              }
-
-              <div class="small">
-
-                Estimated calories:
-
-                ${
-                  formatNumber(
-                    workout.estimated_workout_calories
-                  )
-                }
-
-              </div>
-
-            </div>
-          `;
-
-        }
-      );
-
-    }
-
-
-    if (
-      Array.isArray(data.wellness) &&
-      data.wellness.length
-    ) {
-
-      html += `
-        <h3 class="section-title">
-          Wellness
-        </h3>
-
-        <div class="grid">
-      `;
-
-
-      const wellness =
-        data.wellness[0];
-
-
-      const metrics = [
-
-        [
-          "Water",
-          wellness.water,
-          "L"
-        ],
-
-        [
-          "Sleep",
-          wellness.sleep,
-          "hrs"
-        ],
-
-        [
-          "Energy",
-          wellness.energy,
-          ""
-        ],
-
-        [
-          "Mood",
-          wellness.mood,
-          ""
-        ],
-
-        [
-          "Stress",
-          wellness.stress,
-          ""
-        ],
-
-        [
-          "Hunger",
-          wellness.hunger,
-          ""
-        ],
-
-        [
-          "Soreness",
-          wellness.soreness,
-          ""
-        ],
-
-        [
-          "Steps",
-          wellness.steps,
-          ""
-        ]
-
-      ];
-
-
-      metrics.forEach(
-        function(metric) {
-
-          if (
-            metric[1] === null ||
-            metric[1] === undefined ||
-            metric[1] === ""
-          ) {
-
-            return;
-
-          }
-
-
-          html += `
-            <div class="metric">
-
-              <div class="metric-label">
-                ${metric[0]}
-              </div>
-
-              <div class="metric-value">
-
-                ${formatNumber(
-                  metric[1]
-                )}
-
-                ${
-                  metric[2]
-                    ? `<span class="small">
-                         ${metric[2]}
-                       </span>`
-                    : ""
-                }
-
-              </div>
-
-            </div>
-          `;
-
-        }
-      );
-
-
-      html += `
-        </div>
-      `;
-
-    }
-
-
-    if (!html) {
-
-      html = `
-        <div class="empty">
-          No structured data returned.
-        </div>
-      `;
-
-    }
-
-
-    content.innerHTML =
-      html;
-
-
-    results.style.display =
-      "block";
+    return Number.isNaN(number) ? null : number;
 
   }
 
 
   /*
-   * IMPORTANT DATE HANDLING
-   *
-   * Google Sheets dates can arrive in several
-   * formats. We preserve the calendar date and
-   * avoid converting it through UTC.
+   * For wellness, 0 means "not mentioned"
+   * (older rows saved blanks as 0).
    */
-  function dateKey(value) {
+  function wellnessValue(value) {
 
-    if (!value) {
+    const number = numberOrNull(value);
+
+    return number === null || number === 0 ? null : number;
+
+  }
+
+
+  function sumField(rows, field) {
+
+    return rows.reduce(
+      (sum, row) => sum + (Number(row[field]) || 0),
+      0
+    );
+
+  }
+
+
+  let statusTimer = null;
+
+  function showStatus(message, show = true, hideAfterMs = 0) {
+
+    const status = byId("status");
+
+    clearTimeout(statusTimer);
+
+    status.textContent = message;
+    status.style.display = show ? "block" : "none";
+
+    if (show && hideAfterMs) {
+      statusTimer = setTimeout(function() {
+        status.style.display = "none";
+      }, hideAfterMs);
+    }
+
+  }
+
+
+  function getSavedUserId() {
+
+    try {
+      return localStorage.getItem(USER_ID_STORAGE_KEY) || "";
+    } catch (error) {
       return "";
     }
 
-
-    if (
-      typeof value === "string"
-    ) {
-
-      const match =
-        value.match(
-          /^(\d{4})-(\d{2})-(\d{2})/
-        );
+  }
 
 
-      if (match) {
+  function rememberUserId(userId) {
 
-        return (
-          match[1] +
-          "-" +
-          match[2] +
-          "-" +
-          match[3]
-        );
+    try {
+      localStorage.setItem(USER_ID_STORAGE_KEY, userId);
+    } catch (error) {
+      // Private browsing: the app still works, it just won't remember.
+    }
+
+  }
+
+
+  async function readJson(response) {
+
+    try {
+      return await response.json();
+    } catch (error) {
+      throw new Error("The server sent an unexpected response. Please try again.");
+    }
+
+  }
+
+
+  /*
+   * ---------------------------------------------
+   * LOGGING
+   * ---------------------------------------------
+   */
+
+  async function processEntry() {
+
+    stopVoiceIfListening();
+
+    const userId = byId("userId").value.trim();
+    const note = byId("note").value.trim();
+    const entryDate = getEntryDate();
+    const button = byId("submitButton");
+
+    if (!userId) {
+      showStatus("Please enter a User ID.");
+      return;
+    }
+
+    if (!note) {
+      showStatus("Please enter something to log.");
+      return;
+    }
+
+    button.disabled = true;
+
+    showStatus("Luna is reading your entry...");
+
+    let saved = false;
+
+    try {
+
+      const response = await fetch(
+        "/api/process",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            userId: userId,
+            note: note,
+            date: entryDate
+          })
+        }
+      );
+
+      const data = await readJson(response);
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || "Processing failed.");
+      }
+
+      saved = true;
+
+      rememberUserId(userId);
+
+      const savedDate = data.entryDate || entryDate;
+
+      renderLatestEntry(data, savedDate);
+
+      showStatus(
+        "Logged for " + friendlyDate(savedDate).toLowerCase() + ".",
+        true,
+        4000
+      );
+
+      byId("note").value = "";
+
+    } catch (error) {
+
+      showStatus(error.message || "Something went wrong.");
+
+    } finally {
+
+      button.disabled = false;
+
+    }
+
+    // Refresh the dashboard in the background so
+    // the user isn't kept waiting.
+    if (saved) {
+      loadDashboard({ quiet: true });
+    }
+
+  }
+
+
+  function renderLatestEntry(data, entryDate) {
+
+    const results = byId("results");
+    const content = byId("resultContent");
+
+    let html = `
+      <div class="small entry-date-note">
+        Saved for ${escapeHtml(friendlyDate(entryDate))}
+        (${escapeHtml(entryDate)})
+      </div>
+    `;
+
+    let hasContent = false;
+
+
+    if (Array.isArray(data.foods) && data.foods.length) {
+
+      hasContent = true;
+
+      html += `<h3>Food</h3>`;
+
+      let totalCalories = 0;
+      let totalProtein = 0;
+
+      data.foods.forEach(function(food) {
+
+        totalCalories += Number(food.calories) || 0;
+        totalProtein += Number(food.protein) || 0;
+
+        const parts = [];
+
+        if (Number(food.quantity_grams) > 0) {
+          parts.push(formatNumber(food.quantity_grams) + " g");
+        }
+
+        if (food.meal_type) {
+          parts.push(escapeHtml(food.meal_type));
+        }
+
+        parts.push(formatNumber(food.calories) + " kcal");
+        parts.push(formatNumber(food.protein) + " g protein");
+
+        html += `
+          <div class="food-row">
+            <strong>${escapeHtml(food.food_item)}</strong>
+            <div class="small">${parts.join(" · ")}</div>
+            ${food.notes ? `<div class="small">${escapeHtml(food.notes)}</div>` : ""}
+          </div>
+        `;
+
+      });
+
+      html += `
+        <div class="grid">
+          <div class="metric">
+            <div class="metric-label">Total calories</div>
+            <div class="metric-value">${formatNumber(totalCalories)} kcal</div>
+          </div>
+          <div class="metric">
+            <div class="metric-label">Total protein</div>
+            <div class="metric-value">${formatNumber(totalProtein)} g</div>
+          </div>
+        </div>
+      `;
+
+    }
+
+
+    if (Array.isArray(data.workouts) && data.workouts.length) {
+
+      hasContent = true;
+
+      html += `<h3 class="section-title">Workout</h3>`;
+
+      data.workouts.forEach(function(workout) {
+
+        const isCardio =
+          workout.activity_type === "cardio" ||
+          Number(workout.duration_mins) > 0;
+
+        let details = "";
+
+        if (isCardio) {
+
+          details = Number(workout.duration_mins) > 0
+            ? formatNumber(workout.duration_mins) + " min"
+            : "Cardio";
+
+        } else {
+
+          const parts = [];
+
+          if (Number(workout.set_number) > 0) {
+            parts.push("Set " + formatNumber(workout.set_number));
+          }
+
+          if (Number(workout.reps_completed) > 0) {
+            parts.push(formatNumber(workout.reps_completed) + " reps");
+          }
+
+          if (Number(workout.weight_value) > 0) {
+            parts.push(
+              formatNumber(workout.weight_value) + " " +
+              escapeHtml(workout.weight_type || "")
+            );
+          }
+
+          details = parts.join(" · ");
+
+        }
+
+        html += `
+          <div class="workout-row">
+            <strong>${escapeHtml(workout.exercise)}</strong>
+            ${details ? `<div class="small">${details}</div>` : ""}
+            ${workout.notes ? `<div class="small">${escapeHtml(workout.notes)}</div>` : ""}
+            <div class="small">
+              Estimated calories: ${formatNumber(workout.estimated_workout_calories)}
+            </div>
+          </div>
+        `;
+
+      });
+
+    }
+
+
+    if (Array.isArray(data.wellness) && data.wellness.length) {
+
+      const wellness = data.wellness[0];
+
+      const metrics = [
+        ["Weight", wellness.weight, "kg"],
+        ["Water", wellness.water, "L"],
+        ["Sleep", wellness.sleep, "hrs"],
+        ["Energy", wellness.energy, "/10"],
+        ["Mood", wellness.mood, "/10"],
+        ["Stress", wellness.stress, "/10"],
+        ["Hunger", wellness.hunger, "/10"],
+        ["Soreness", wellness.soreness, "/10"],
+        ["Steps", wellness.steps, ""]
+      ].filter(metric => wellnessValue(metric[1]) !== null);
+
+      if (metrics.length || wellness.notes) {
+
+        hasContent = true;
+
+        html += `<h3 class="section-title">Wellness</h3>`;
+
+        if (metrics.length) {
+
+          html += `<div class="grid">`;
+
+          metrics.forEach(function(metric) {
+
+            html += `
+              <div class="metric">
+                <div class="metric-label">${metric[0]}</div>
+                <div class="metric-value">
+                  ${formatNumber(metric[1])}
+                  ${metric[2] ? `<span class="small">${metric[2]}</span>` : ""}
+                </div>
+              </div>
+            `;
+
+          });
+
+          html += `</div>`;
+
+        }
+
+        if (wellness.notes) {
+          html += `<div class="small" style="margin-top:10px;">${escapeHtml(wellness.notes)}</div>`;
+        }
 
       }
 
     }
 
 
-    const date =
-      new Date(value);
-
-
-    if (
-      Number.isNaN(
-        date.getTime()
-      )
-    ) {
-
-      return String(value);
-
+    if (!hasContent) {
+      html += `<div class="small">No structured data returned.</div>`;
     }
 
-
-    const year =
-      date.getFullYear();
-
-
-    const month =
-      String(
-        date.getMonth() + 1
-      ).padStart(2, "0");
-
-
-    const day =
-      String(
-        date.getDate()
-      ).padStart(2, "0");
-
-
-    return (
-      year +
-      "-" +
-      month +
-      "-" +
-      day
-    );
+    content.innerHTML = html;
+    results.style.display = "block";
 
   }
 
 
-  function groupByDate(rows) {
+  /*
+   * ---------------------------------------------
+   * DASHBOARD
+   * ---------------------------------------------
+   */
 
-    const grouped = {};
+  async function loadDashboard(options = {}) {
 
+    const quiet = options.quiet === true;
 
-    rows.forEach(
-      function(row) {
-
-        const key =
-          dateKey(row["Date"]);
-
-
-        if (!key) {
-          return;
-        }
-
-
-        if (!grouped[key]) {
-          grouped[key] = [];
-        }
-
-
-        grouped[key].push(row);
-
-      }
-    );
-
-
-    return grouped;
-
-  }
-
-
-  async function loadDashboard() {
-
-    const userId =
-      document
-        .getElementById("userId")
-        .value
-        .trim();
-
+    const userId = byId("userId").value.trim();
 
     if (!userId) {
 
-      showStatus(
-        "Enter a User ID before loading the dashboard."
-      );
+      if (!quiet) {
+        showStatus("Enter a User ID before loading the dashboard.");
+      }
 
       return;
 
     }
 
-
-    showStatus(
-      "Loading dashboard..."
-    );
-
+    if (!quiet) {
+      showStatus("Loading dashboard...");
+    }
 
     try {
 
-      const response =
-        await fetch(
-          "/api/dashboard",
-          {
+      const response = await fetch(
+        "/api/dashboard",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ userId: userId })
+        }
+      );
 
-            method: "POST",
+      const data = await readJson(response);
 
-            headers: {
-              "Content-Type":
-                "application/json"
-            },
-
-            body: JSON.stringify({
-              userId: userId
-            })
-
-          }
-        );
-
-
-      const data =
-        await response.json();
-
-
-      if (
-        !response.ok ||
-        !data.success
-      ) {
-
-        throw new Error(
-          data.error ||
-          "Unable to load dashboard."
-        );
-
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || "Unable to load dashboard.");
       }
 
+      rememberUserId(userId);
 
-      dashboardData =
-        data;
+      dashboardData = data;
 
+      renderDashboard(data);
 
-      renderDashboard(
-        data
-      );
+      if (!quiet) {
+        showStatus("Dashboard loaded.", true, 2500);
+      }
 
-
-      showStatus(
-        "Dashboard loaded."
-      );
-
-    }
-
-
-    catch (error) {
+    } catch (error) {
 
       showStatus(
-        error.message ||
-        "Dashboard loading failed."
+        quiet
+          ? "Saved, but the dashboard didn't refresh. Tap Refresh to try again."
+          : error.message || "Dashboard loading failed."
       );
 
     }
@@ -1725,1448 +1656,743 @@
 
   function setDashboardRange(days) {
 
-    dashboardRange =
-      days;
+    dashboardRange = days;
 
-
-    document
-      .getElementById("range7")
-      .classList.toggle(
-        "active",
-        days === 7
-      );
-
-
-    document
-      .getElementById("range30")
-      .classList.toggle(
-        "active",
-        days === 30
-      );
-
+    byId("range7").classList.toggle("active", days === 7);
+    byId("range30").classList.toggle("active", days === 30);
 
     if (dashboardData) {
-
-      renderDashboard(
-        dashboardData
-      );
-
+      renderDashboard(dashboardData);
     }
 
   }
 
 
-  function getFilteredDates(
-    foods,
-    workouts,
-    wellness
-  ) {
+  function filterRowsByDates(rows, dates) {
 
-    const allDates =
-      Array.from(
-        new Set(
+    const dateSet = new Set(dates);
 
-          foods
-            .map(
-              row => dateKey(
-                row["Date"]
-              )
-            )
-            .concat(
-              workouts.map(
-                row => dateKey(
-                  row["Date"]
-                )
-              )
-            )
-            .concat(
-              wellness.map(
-                row => dateKey(
-                  row["Date"]
-                )
-              )
-            )
-
-        )
-      )
-      .filter(Boolean)
-      .sort();
-
-
-    return allDates.slice(
-      -dashboardRange
-    );
-
-  }
-
-
-  function filterRowsByDates(
-    rows,
-    dates
-  ) {
-
-    const dateSet =
-      new Set(dates);
-
-
-    return rows.filter(
-      row =>
-        dateSet.has(
-          dateKey(
-            row["Date"]
-          )
-        )
-    );
+    return rows.filter(row => dateSet.has(dateKey(row["Date"])));
 
   }
 
 
   function renderDashboard(data) {
 
-    const dashboard =
-      document.getElementById(
-        "dashboard"
-      );
+    byId("dashboard").style.display = "block";
 
-
-    dashboard.style.display =
-      "block";
-
-
-    document.getElementById(
-      "dashboardUser"
-    ).textContent =
+    byId("dashboardUser").textContent =
       `User: ${data.userId} · Last ${dashboardRange} days`;
 
+    const foods = Array.isArray(data.foods) ? data.foods : [];
+    const workouts = Array.isArray(data.workouts) ? data.workouts : [];
+    const wellness = Array.isArray(data.wellness) ? data.wellness : [];
 
-    const foods =
-      Array.isArray(data.foods)
-        ? data.foods
-        : [];
+    const dates = lastNDays(dashboardRange);
 
+    const filteredFoods = filterRowsByDates(foods, dates);
+    const filteredWorkouts = filterRowsByDates(workouts, dates);
+    const filteredWellness = filterRowsByDates(wellness, dates);
 
-    const workouts =
-      Array.isArray(data.workouts)
-        ? data.workouts
-        : [];
+    renderDashboardSummary(filteredFoods, filteredWorkouts, filteredWellness, dates);
 
+    if (typeof Chart === "undefined") {
 
-    const wellness =
-      Array.isArray(data.wellness)
-        ? data.wellness
-        : [];
+      const message =
+        `<div class="chart-empty">Charts couldn't load. Check your connection and tap Refresh.</div>`;
 
+      byId("nutritionChart").innerHTML = message;
+      byId("workoutChart").innerHTML = message;
+      byId("wellnessChart").innerHTML = message;
 
-    const dates =
-      getFilteredDates(
-        foods,
-        workouts,
-        wellness
-      );
+    } else {
 
+      renderNutrition(filteredFoods, dates);
+      renderWorkout(filteredWorkouts, dates);
+      renderWellness(filteredWellness, dates);
 
-    const filteredFoods =
-      filterRowsByDates(
-        foods,
-        dates
-      );
+    }
 
+    renderRecentDays(filteredFoods, filteredWorkouts, filteredWellness, dates);
 
-    const filteredWorkouts =
-      filterRowsByDates(
-        workouts,
-        dates
-      );
-
-
-    const filteredWellness =
-      filterRowsByDates(
-        wellness,
-        dates
-      );
-
-
-    renderDashboardSummary(
-      filteredFoods,
-      filteredWorkouts,
-      filteredWellness,
-      dates
-    );
-
-
-    renderNutrition(
-      filteredFoods,
-      dates
-    );
-
-
-    renderWorkout(
-      filteredWorkouts,
-      dates
-    );
-
-
-    renderWellness(
-      filteredWellness,
-      dates
-    );
-
-
-    renderRecentDays(
-      filteredFoods,
-      filteredWorkouts,
-      filteredWellness,
-      dates
-    );
+    updateMissedBanner();
 
   }
 
 
-  function renderDashboardSummary(
-    foods,
-    workouts,
-    wellness,
-    dates
-  ) {
+  function renderDashboardSummary(foods, workouts, wellness, dates) {
 
-    const totalCalories =
-      foods.reduce(
-        function(sum, food) {
+    const foodDays = new Set(foods.map(row => dateKey(row["Date"])));
 
-          return sum +
-            (
-              Number(
-                food["Calories"]
-              ) || 0
-            );
+    const loggedDays = new Set(
+      []
+        .concat(foods, workouts, wellness)
+        .map(row => dateKey(row["Date"]))
+    );
 
-        },
-        0
-      );
+    const totalCalories = sumField(foods, "Calories");
+    const totalProtein = sumField(foods, "Protein");
 
+    const averageCalories =
+      foodDays.size ? totalCalories / foodDays.size : null;
 
-    const protein =
-      foods.reduce(
-        function(sum, food) {
-
-          return sum +
-            (
-              Number(
-                food["Protein"]
-              ) || 0
-            );
-
-        },
-        0
-      );
-
-
-    const workoutCalories =
-      workouts.reduce(
-        function(sum, workout) {
-
-          return sum +
-            (
-              Number(
-                workout[
-                  "Estimated Workout Calories"
-                ]
-              ) || 0
-            );
-
-        },
-        0
-      );
-
-
-    const workoutMinutes =
-      workouts.reduce(
-        function(sum, workout) {
-
-          return sum +
-            (
-              Number(
-                workout[
-                  "Duration Mins"
-                ]
-              ) || 0
-            );
-
-        },
-        0
-      );
-
+    const averageProtein =
+      foodDays.size ? totalProtein / foodDays.size : null;
 
     const metrics = [
-
       [
-        "Food calories logged",
-        formatNumber(
-          totalCalories
-        ) + " kcal"
+        "Avg calories per day logged",
+        averageCalories === null ? "–" : formatNumber(Math.round(averageCalories)) + " kcal"
       ],
-
       [
-        "Protein logged",
-        formatNumber(
-          protein
-        ) + " g"
+        "Avg protein per day logged",
+        averageProtein === null ? "–" : formatNumber(Math.round(averageProtein)) + " g"
       ],
-
-      [
-        "Workout calories",
-        formatNumber(
-          workoutCalories
-        ) + " kcal"
-      ],
-
       [
         "Workout time",
-        formatNumber(
-          workoutMinutes
-        ) + " min"
+        formatNumber(sumField(workouts, "Duration Mins")) + " min"
       ],
-
       [
-        "Days with data",
-        formatNumber(
-          dates.length
-        )
+        "Workout calories (est.)",
+        formatNumber(sumField(workouts, "Estimated Workout Calories")) + " kcal"
+      ],
+      [
+        "Days logged",
+        loggedDays.size + " of " + dates.length
       ]
-
     ];
 
-
-    const container =
-      document.getElementById(
-        "dashboardSummary"
-      );
-
-
-    container.innerHTML =
-      metrics
-        .map(
-          function(metric) {
-
-            return `
-              <div class="metric">
-
-                <div class="metric-label">
-                  ${metric[0]}
-                </div>
-
-                <div class="metric-value">
-                  ${metric[1]}
-                </div>
-
-              </div>
-            `;
-
-          }
-        )
-        .join("");
-
-  }
-
-
-  function getDailyNutrition(
-    foods,
-    dates
-  ) {
-
-    const grouped =
-      groupByDate(
-        foods
-      );
-
-
-    return dates.map(
-      function(date) {
-
-        const rows =
-          grouped[date] || [];
-
-
-        return {
-
-          date: date,
-
-          calories:
-            rows.reduce(
-              (sum, row) =>
-                sum +
-                (
-                  Number(
-                    row["Calories"]
-                  ) || 0
-                ),
-              0
-            ),
-
-          protein:
-            rows.reduce(
-              (sum, row) =>
-                sum +
-                (
-                  Number(
-                    row["Protein"]
-                  ) || 0
-                ),
-              0
-            ),
-
-          carbs:
-            rows.reduce(
-              (sum, row) =>
-                sum +
-                (
-                  Number(
-                    row["Carbs"]
-                  ) || 0
-                ),
-              0
-            ),
-
-          fat:
-            rows.reduce(
-              (sum, row) =>
-                sum +
-                (
-                  Number(
-                    row["Fat"]
-                  ) || 0
-                ),
-              0
-            )
-
-        };
-
-      }
-    );
-
-  }
-
-
-  function renderNutrition(
-    foods,
-    dates
-  ) {
-
-    const container =
-      document.getElementById(
-        "nutritionChart"
-      );
-
-
-    if (!dates.length) {
-
-      destroyChart(
-        nutritionCaloriesChart
-      );
-
-      destroyChart(
-        nutritionMacrosChart
-      );
-
-      container.innerHTML =
-        `<div class="chart-empty">
-          No food data yet.
-        </div>`;
-
-      return;
-
-    }
-
-
-    container.innerHTML = `
-
-      <div class="chart-card">
-
-        <h3>Calories</h3>
-
-        <div class="chart-wrapper">
-
-          <canvas
-            id="nutritionCaloriesCanvas"
-          ></canvas>
-
+    byId("dashboardSummary").innerHTML = metrics
+      .map(metric => `
+        <div class="metric">
+          <div class="metric-label">${metric[0]}</div>
+          <div class="metric-value">${metric[1]}</div>
         </div>
-
-      </div>
-
-
-      <div class="chart-card">
-
-        <h3>Macros</h3>
-
-        <div class="chart-wrapper">
-
-          <canvas
-            id="nutritionMacrosCanvas"
-          ></canvas>
-
-        </div>
-
-      </div>
-
-    `;
-
-
-    const daily =
-      getDailyNutrition(
-        foods,
-        dates
-      );
-
-
-    destroyChart(
-      nutritionCaloriesChart
-    );
-
-    nutritionCaloriesChart =
-      new Chart(
-        document.getElementById(
-          "nutritionCaloriesCanvas"
-        ),
-        {
-
-          type: "line",
-
-          data: {
-
-            labels:
-              daily.map(
-                item =>
-                  shortDate(
-                    item.date
-                  )
-              ),
-
-            datasets: [
-
-              {
-                label:
-                  "Calories (kcal)",
-
-                data:
-                  daily.map(
-                    item =>
-                      item.calories
-                  ),
-
-                tension: 0.3,
-
-                fill: false
-              }
-
-            ]
-
-          },
-
-          options: {
-
-            responsive: true,
-
-            maintainAspectRatio: false,
-
-            interaction: {
-              mode: "index",
-              intersect: false
-            },
-
-            scales: {
-
-              y: {
-                beginAtZero: true
-              }
-
-            }
-
-          }
-
-        }
-      );
-
-
-    destroyChart(
-      nutritionMacrosChart
-    );
-
-    nutritionMacrosChart =
-      new Chart(
-        document.getElementById(
-          "nutritionMacrosCanvas"
-        ),
-        {
-
-          type: "bar",
-
-          data: {
-
-            labels:
-              daily.map(
-                item =>
-                  shortDate(
-                    item.date
-                  )
-              ),
-
-            datasets: [
-
-              {
-                label:
-                  "Protein (g)",
-
-                data:
-                  daily.map(
-                    item =>
-                      item.protein
-                  )
-              },
-
-              {
-                label:
-                  "Carbs (g)",
-
-                data:
-                  daily.map(
-                    item =>
-                      item.carbs
-                  )
-              },
-
-              {
-                label:
-                  "Fat (g)",
-
-                data:
-                  daily.map(
-                    item =>
-                      item.fat
-                  )
-              }
-
-            ]
-
-          },
-
-          options: {
-
-            responsive: true,
-
-            maintainAspectRatio: false,
-
-            scales: {
-
-              y: {
-                beginAtZero: true
-              }
-
-            }
-
-          }
-
-        }
-      );
+      `)
+      .join("");
 
   }
 
 
-  function getDailyWorkout(
-    workouts,
-    dates
-  ) {
+  function destroyChart(name) {
 
-    const grouped =
-      groupByDate(
-        workouts
-      );
-
-
-    return dates.map(
-      function(date) {
-
-        const rows =
-          grouped[date] || [];
-
-
-        return {
-
-          date: date,
-
-          calories:
-            rows.reduce(
-              (sum, row) =>
-                sum +
-                (
-                  Number(
-                    row[
-                      "Estimated Workout Calories"
-                    ]
-                  ) || 0
-                ),
-              0
-            ),
-
-          minutes:
-            rows.reduce(
-              (sum, row) =>
-                sum +
-                (
-                  Number(
-                    row[
-                      "Duration Mins"
-                    ]
-                  ) || 0
-                ),
-              0
-            ),
-
-          exercises:
-            new Set(
-              rows
-                .map(
-                  row =>
-                    row["Exercise"]
-                )
-                .filter(Boolean)
-            ).size
-
-        };
-
-      }
-    );
-
-  }
-
-
-  function renderWorkout(
-    workouts,
-    dates
-  ) {
-
-    const container =
-      document.getElementById(
-        "workoutChart"
-      );
-
-
-    if (!dates.length) {
-
-      destroyChart(
-        workoutCaloriesChart
-      );
-
-      destroyChart(
-        workoutMinutesChart
-      );
-
-      container.innerHTML =
-        `<div class="chart-empty">
-          No workout data yet.
-        </div>`;
-
-      return;
-
-    }
-
-
-    container.innerHTML = `
-
-      <div class="chart-card">
-
-        <h3>Estimated workout calories</h3>
-
-        <div class="chart-wrapper">
-
-          <canvas
-            id="workoutCaloriesCanvas"
-          ></canvas>
-
-        </div>
-
-      </div>
-
-
-      <div class="chart-card">
-
-        <h3>Workout time</h3>
-
-        <div class="chart-wrapper">
-
-          <canvas
-            id="workoutMinutesCanvas"
-          ></canvas>
-
-        </div>
-
-      </div>
-
-    `;
-
-
-    const daily =
-      getDailyWorkout(
-        workouts,
-        dates
-      );
-
-
-    destroyChart(
-      workoutCaloriesChart
-    );
-
-    workoutCaloriesChart =
-      new Chart(
-        document.getElementById(
-          "workoutCaloriesCanvas"
-        ),
-        {
-
-          type: "bar",
-
-          data: {
-
-            labels:
-              daily.map(
-                item =>
-                  shortDate(
-                    item.date
-                  )
-              ),
-
-            datasets: [
-
-              {
-                label:
-                  "Estimated calories",
-
-                data:
-                  daily.map(
-                    item =>
-                      item.calories
-                  )
-              }
-
-            ]
-
-          },
-
-          options: {
-
-            responsive: true,
-
-            maintainAspectRatio: false,
-
-            scales: {
-
-              y: {
-                beginAtZero: true
-              }
-
-            }
-
-          }
-
-        }
-      );
-
-
-    destroyChart(
-      workoutMinutesChart
-    );
-
-    workoutMinutesChart =
-      new Chart(
-        document.getElementById(
-          "workoutMinutesCanvas"
-        ),
-        {
-
-          type: "line",
-
-          data: {
-
-            labels:
-              daily.map(
-                item =>
-                  shortDate(
-                    item.date
-                  )
-              ),
-
-            datasets: [
-
-              {
-                label:
-                  "Workout minutes",
-
-                data:
-                  daily.map(
-                    item =>
-                      item.minutes
-                  ),
-
-                tension: 0.3,
-
-                fill: false
-              }
-
-            ]
-
-          },
-
-          options: {
-
-            responsive: true,
-
-            maintainAspectRatio: false,
-
-            scales: {
-
-              y: {
-                beginAtZero: true
-              }
-
-            }
-
-          }
-
-        }
-
-      );
-
-  }
-
-
-  function getDailyWellness(
-    wellness,
-    dates
-  ) {
-
-    const grouped =
-      groupByDate(
-        wellness
-      );
-
-
-    return dates.map(
-      function(date) {
-
-        const rows =
-          grouped[date] || [];
-
-
-        const row =
-          rows.length
-            ? rows[rows.length - 1]
-            : {};
-
-
-        return {
-
-          date: date,
-
-          sleep:
-            numberOrNull(
-              row["Sleep"]
-            ),
-
-          water:
-            numberOrNull(
-              row["Water"]
-            ),
-
-          energy:
-            numberOrNull(
-              row["Energy"]
-            ),
-
-          mood:
-            numberOrNull(
-              row["Mood"]
-            ),
-
-          stress:
-            numberOrNull(
-              row["Stress"]
-            ),
-
-          hunger:
-            numberOrNull(
-              row["Hunger"]
-            ),
-
-          soreness:
-            numberOrNull(
-              row["Soreness"]
-            )
-
-        };
-
-      }
-    );
-
-  }
-
-
-  function numberOrNull(value) {
-
-    if (
-      value === null ||
-      value === undefined ||
-      value === ""
-    ) {
-
-      return null;
-
-    }
-
-
-    const number =
-      Number(value);
-
-
-    return Number.isNaN(
-      number
-    )
-      ? null
-      : number;
-
-  }
-
-
-  function renderWellness(
-    wellness,
-    dates
-  ) {
-
-    const container =
-      document.getElementById(
-        "wellnessChart"
-      );
-
-
-    if (!dates.length) {
-
-      destroyChart(
-        wellnessChart
-      );
-
-      destroyChart(
-        sleepChart
-      );
-
-      container.innerHTML =
-        `<div class="chart-empty">
-          No wellness data yet.
-        </div>`;
-
-      return;
-
-    }
-
-
-    container.innerHTML = `
-
-      <div class="chart-card">
-
-        <h3>Wellness ratings</h3>
-
-        <div class="chart-wrapper tall">
-
-          <canvas
-            id="wellnessCanvas"
-          ></canvas>
-
-        </div>
-
-      </div>
-
-
-      <div class="chart-card">
-
-        <h3>Sleep & hydration</h3>
-
-        <div class="chart-wrapper tall">
-
-          <canvas
-            id="sleepCanvas"
-          ></canvas>
-
-        </div>
-
-      </div>
-
-    `;
-
-
-    const daily =
-      getDailyWellness(
-        wellness,
-        dates
-      );
-
-
-    destroyChart(
-      wellnessChart
-    );
-
-    wellnessChart =
-      new Chart(
-        document.getElementById(
-          "wellnessCanvas"
-        ),
-        {
-
-          type: "line",
-
-          data: {
-
-            labels:
-              daily.map(
-                item =>
-                  shortDate(
-                    item.date
-                  )
-              ),
-
-            datasets: [
-
-              {
-                label: "Energy",
-                data:
-                  daily.map(
-                    item =>
-                      item.energy
-                  ),
-                tension: 0.3
-              },
-
-              {
-                label: "Mood",
-                data:
-                  daily.map(
-                    item =>
-                      item.mood
-                  ),
-                tension: 0.3
-              },
-
-              {
-                label: "Stress",
-                data:
-                  daily.map(
-                    item =>
-                      item.stress
-                  ),
-                tension: 0.3
-              },
-
-              {
-                label: "Hunger",
-                data:
-                  daily.map(
-                    item =>
-                      item.hunger
-                  ),
-                tension: 0.3
-              },
-
-              {
-                label: "Soreness",
-                data:
-                  daily.map(
-                    item =>
-                      item.soreness
-                  ),
-                tension: 0.3
-              }
-
-            ]
-
-          },
-
-          options: {
-
-            responsive: true,
-
-            maintainAspectRatio: false,
-
-            scales: {
-
-              y: {
-
-                min: 1,
-
-                max: 10
-
-              }
-
-            }
-
-          }
-
-        }
-
-      );
-
-
-    destroyChart(
-      sleepChart
-    );
-
-    sleepChart =
-      new Chart(
-        document.getElementById(
-          "sleepCanvas"
-        ),
-        {
-
-          type: "bar",
-
-          data: {
-
-            labels:
-              daily.map(
-                item =>
-                  shortDate(
-                    item.date
-                  )
-              ),
-
-            datasets: [
-
-              {
-                label:
-                  "Sleep (hours)",
-
-                data:
-                  daily.map(
-                    item =>
-                      item.sleep
-                  )
-              },
-
-              {
-                label:
-                  "Water (L)",
-
-                data:
-                  daily.map(
-                    item =>
-                      item.water
-                  )
-              }
-
-            ]
-
-          },
-
-          options: {
-
-            responsive: true,
-
-            maintainAspectRatio: false,
-
-            scales: {
-
-              y: {
-                beginAtZero: true
-              }
-
-            }
-
-          }
-
-        }
-
-      );
-
-  }
-
-
-  function shortDate(date) {
-
-    if (!date) {
-      return "";
-    }
-
-
-    const parts =
-      date.split("-");
-
-
-    if (parts.length !== 3) {
-      return date;
-    }
-
-
-    return (
-      parts[1] +
-      "/" +
-      parts[2]
-    );
-
-  }
-
-
-  function destroyChart(chart) {
-
-    if (chart) {
+    if (charts[name]) {
 
       try {
-        chart.destroy();
+        charts[name].destroy();
       } catch (error) {
         // Ignore chart cleanup errors.
       }
 
+      charts[name] = null;
+
     }
 
   }
 
 
-  function renderRecentDays(
-    foods,
-    workouts,
-    wellness,
-    dates
-  ) {
+  function makeChart(name, canvasId, config) {
 
-    const container =
-      document.getElementById(
-        "recentDays"
-      );
+    destroyChart(name);
+
+    charts[name] = new Chart(byId(canvasId), config);
+
+  }
 
 
-    const recentDates =
-      [...dates]
-        .reverse()
-        .slice(
-          0,
-          dashboardRange
-        );
+  function chartCard(title, canvasId, tall) {
+
+    return `
+      <div class="chart-card">
+        <h3>${title}</h3>
+        <div class="chart-wrapper${tall ? " tall" : ""}">
+          <canvas id="${canvasId}"></canvas>
+        </div>
+      </div>
+    `;
+
+  }
 
 
-    if (!recentDates.length) {
+  const baseChartOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    interaction: { mode: "index", intersect: false },
+    scales: { y: { beginAtZero: true } }
+  };
 
-      container.innerHTML =
-        `<div class="chart-empty">
-          No history yet.
-        </div>`;
+
+  /*
+   * Nutrition: days with no food logged show as
+   * a gap, not as 0 kcal.
+   */
+  function getDailyNutrition(foods, dates) {
+
+    const grouped = groupByDate(foods);
+
+    return dates.map(function(date) {
+
+      const rows = grouped[date];
+
+      if (!rows || !rows.length) {
+        return { date: date, calories: null, protein: null, carbs: null, fat: null };
+      }
+
+      return {
+        date: date,
+        calories: Math.round(sumField(rows, "Calories")),
+        protein: Math.round(sumField(rows, "Protein")),
+        carbs: Math.round(sumField(rows, "Carbs")),
+        fat: Math.round(sumField(rows, "Fat"))
+      };
+
+    });
+
+  }
+
+
+  function renderNutrition(foods, dates) {
+
+    const container = byId("nutritionChart");
+
+    if (!foods.length) {
+
+      destroyChart("nutritionCalories");
+      destroyChart("nutritionMacros");
+
+      container.innerHTML = `<div class="chart-empty">No food logged in this period.</div>`;
 
       return;
 
     }
 
+    container.innerHTML =
+      chartCard("Calories", "nutritionCaloriesCanvas") +
+      chartCard("Macros", "nutritionMacrosCanvas");
 
-    let html = "";
+    const daily = getDailyNutrition(foods, dates);
+    const labels = daily.map(item => shortDate(item.date));
+
+    makeChart("nutritionCalories", "nutritionCaloriesCanvas", {
+      type: "line",
+      data: {
+        labels: labels,
+        datasets: [
+          {
+            label: "Calories (kcal)",
+            data: daily.map(item => item.calories),
+            tension: 0.3,
+            fill: false,
+            spanGaps: false
+          }
+        ]
+      },
+      options: baseChartOptions
+    });
+
+    makeChart("nutritionMacros", "nutritionMacrosCanvas", {
+      type: "bar",
+      data: {
+        labels: labels,
+        datasets: [
+          { label: "Protein (g)", data: daily.map(item => item.protein) },
+          { label: "Carbs (g)", data: daily.map(item => item.carbs) },
+          { label: "Fat (g)", data: daily.map(item => item.fat) }
+        ]
+      },
+      options: baseChartOptions
+    });
+
+  }
 
 
-    recentDates.forEach(
-      function(date) {
+  function getDailyWorkout(workouts, dates) {
 
-        const foodCount =
-          foods.filter(
-            row =>
-              dateKey(
-                row["Date"]
-              ) === date
-          ).length;
+    const grouped = groupByDate(workouts);
 
+    return dates.map(function(date) {
 
-        const workoutCount =
-          workouts.filter(
-            row =>
-              dateKey(
-                row["Date"]
-              ) === date
-          ).length;
+      const rows = grouped[date] || [];
+
+      return {
+        date: date,
+        calories: Math.round(sumField(rows, "Estimated Workout Calories")),
+        minutes: Math.round(sumField(rows, "Duration Mins"))
+      };
+
+    });
+
+  }
 
 
-        const wellnessCount =
-          wellness.filter(
-            row =>
-              dateKey(
-                row["Date"]
-              ) === date
-          ).length;
+  function renderWorkout(workouts, dates) {
 
+    const container = byId("workoutChart");
 
-        html += `
+    if (!workouts.length) {
 
-          <div class="day-card">
+      destroyChart("workoutCalories");
+      destroyChart("workoutMinutes");
 
-            <div class="day-header">
+      container.innerHTML = `<div class="chart-empty">No workouts logged in this period.</div>`;
 
-              <div class="day-date">
-                ${escapeHtml(date)}
-              </div>
+      return;
 
-              <div class="small">
-
-                Food:
-                ${foodCount}
-
-                ·
-
-                Workout:
-                ${workoutCount}
-
-                ·
-
-                Wellness:
-                ${wellnessCount}
-
-              </div>
-
-            </div>
-
-          </div>
-
-        `;
-
-      }
-    );
-
+    }
 
     container.innerHTML =
-      html;
+      chartCard("Estimated workout calories", "workoutCaloriesCanvas") +
+      chartCard("Workout time (cardio minutes)", "workoutMinutesCanvas");
+
+    const daily = getDailyWorkout(workouts, dates);
+    const labels = daily.map(item => shortDate(item.date));
+
+    makeChart("workoutCalories", "workoutCaloriesCanvas", {
+      type: "bar",
+      data: {
+        labels: labels,
+        datasets: [
+          { label: "Estimated calories", data: daily.map(item => item.calories) }
+        ]
+      },
+      options: baseChartOptions
+    });
+
+    makeChart("workoutMinutes", "workoutMinutesCanvas", {
+      type: "bar",
+      data: {
+        labels: labels,
+        datasets: [
+          { label: "Workout minutes", data: daily.map(item => item.minutes) }
+        ]
+      },
+      options: baseChartOptions
+    });
 
   }
 
 
   /*
-   * Give the User ID field focus on load.
+   * Wellness: several check-ins on one day are
+   * merged. Water adds up, steps take the highest
+   * number, everything else takes the latest value
+   * that was actually given.
    */
-  document
-    .getElementById("userId")
-    .focus();
+  const LATEST_WELLNESS_FIELDS = [
+    "Weight",
+    "Sleep",
+    "Energy",
+    "Mood",
+    "Stress",
+    "Hunger",
+    "Soreness"
+  ];
+
+
+  function mergeWellnessRows(rows) {
+
+    const merged = {
+      weight: null,
+      sleep: null,
+      energy: null,
+      mood: null,
+      stress: null,
+      hunger: null,
+      soreness: null,
+      water: null,
+      steps: null
+    };
+
+    rows.forEach(function(row) {
+
+      LATEST_WELLNESS_FIELDS.forEach(function(field) {
+
+        const value = wellnessValue(row[field]);
+
+        if (value !== null) {
+          merged[field.toLowerCase()] = value;
+        }
+
+      });
+
+      const water = wellnessValue(row["Water"]);
+
+      if (water !== null) {
+        merged.water = Math.round(((merged.water || 0) + water) * 100) / 100;
+      }
+
+      const steps = wellnessValue(row["Steps"]);
+
+      if (steps !== null) {
+        merged.steps = Math.max(merged.steps || 0, steps);
+      }
+
+    });
+
+    return merged;
+
+  }
+
+
+  function getDailyWellness(wellness, dates) {
+
+    const grouped = groupByDate(wellness);
+
+    return dates.map(function(date) {
+
+      const merged = mergeWellnessRows(grouped[date] || []);
+
+      merged.date = date;
+
+      return merged;
+
+    });
+
+  }
+
+
+  function renderWellness(wellness, dates) {
+
+    const container = byId("wellnessChart");
+
+    if (!wellness.length) {
+
+      destroyChart("wellness");
+      destroyChart("sleep");
+
+      container.innerHTML = `<div class="chart-empty">No wellness check-ins in this period.</div>`;
+
+      return;
+
+    }
+
+    container.innerHTML =
+      chartCard("Wellness ratings", "wellnessCanvas", true) +
+      chartCard("Sleep & hydration", "sleepCanvas", true);
+
+    const daily = getDailyWellness(wellness, dates);
+    const labels = daily.map(item => shortDate(item.date));
+
+    makeChart("wellness", "wellnessCanvas", {
+      type: "line",
+      data: {
+        labels: labels,
+        datasets: [
+          { label: "Energy", data: daily.map(item => item.energy), tension: 0.3 },
+          { label: "Mood", data: daily.map(item => item.mood), tension: 0.3 },
+          { label: "Stress", data: daily.map(item => item.stress), tension: 0.3 },
+          { label: "Hunger", data: daily.map(item => item.hunger), tension: 0.3 },
+          { label: "Soreness", data: daily.map(item => item.soreness), tension: 0.3 }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: "index", intersect: false },
+        scales: { y: { min: 0, max: 10 } }
+      }
+    });
+
+    makeChart("sleep", "sleepCanvas", {
+      type: "bar",
+      data: {
+        labels: labels,
+        datasets: [
+          { label: "Sleep (hours)", data: daily.map(item => item.sleep) },
+          { label: "Water (L)", data: daily.map(item => item.water) }
+        ]
+      },
+      options: baseChartOptions
+    });
+
+  }
 
 
   /*
-   * Allow Ctrl/Cmd + Enter to submit.
+   * Recent days: newest first, with each day's
+   * totals. Empty days get a button to log them.
    */
-  document
-    .getElementById("note")
-    .addEventListener(
-      "keydown",
-      function(event) {
+  function renderRecentDays(foods, workouts, wellness, dates) {
 
-        if (
-          (event.ctrlKey ||
-           event.metaKey) &&
-          event.key === "Enter"
-        ) {
+    const container = byId("recentDays");
 
-          event.preventDefault();
+    const foodByDate = groupByDate(foods);
+    const workoutByDate = groupByDate(workouts);
+    const wellnessByDate = groupByDate(wellness);
 
-          processEntry();
+    let html = "";
 
-        }
+    [...dates].reverse().forEach(function(date) {
+
+      const dayFoods = foodByDate[date] || [];
+      const dayWorkouts = workoutByDate[date] || [];
+      const dayWellness = wellnessByDate[date] || [];
+
+      const label =
+        `${escapeHtml(friendlyDate(date))} <span class="small">${escapeHtml(date)}</span>`;
+
+      if (!dayFoods.length && !dayWorkouts.length && !dayWellness.length) {
+
+        html += `
+          <div class="day-row empty">
+            <div>
+              <div class="day-date">${label}</div>
+              <div class="small">Nothing logged</div>
+            </div>
+            <button
+              type="button"
+              class="secondary-button"
+              onclick="logForDate('${date}')"
+            >
+              Add entry
+            </button>
+          </div>
+        `;
+
+        return;
 
       }
-    );
+
+      const parts = [];
+
+      if (dayFoods.length) {
+        parts.push(formatNumber(Math.round(sumField(dayFoods, "Calories"))) + " kcal");
+        parts.push(formatNumber(Math.round(sumField(dayFoods, "Protein"))) + " g protein");
+      }
+
+      if (dayWorkouts.length) {
+
+        const minutes = sumField(dayWorkouts, "Duration Mins");
+        const exercises = new Set(dayWorkouts.map(row => row["Exercise"]).filter(Boolean)).size;
+
+        parts.push(
+          minutes > 0
+            ? formatNumber(minutes) + " min workout"
+            : exercises + (exercises === 1 ? " exercise" : " exercises")
+        );
+
+      }
+
+      const wellnessDay = mergeWellnessRows(dayWellness);
+
+      if (wellnessDay.sleep !== null) {
+        parts.push(formatNumber(wellnessDay.sleep) + " h sleep");
+      }
+
+      if (wellnessDay.water !== null) {
+        parts.push(formatNumber(wellnessDay.water) + " L water");
+      }
+
+      html += `
+        <div class="day-row">
+          <div>
+            <div class="day-date">${label}</div>
+            <div class="small">${parts.join(" · ") || "Check-in logged"}</div>
+          </div>
+        </div>
+      `;
+
+    });
+
+    container.innerHTML = html;
+
+  }
+
+
+  /*
+   * ---------------------------------------------
+   * INSIGHTS
+   * ---------------------------------------------
+   */
+
+  async function getRecommendations() {
+
+    const userId = byId("userId").value.trim();
+    const button = byId("recommendButton");
+    const card = byId("recommendationsCard");
+    const content = byId("recommendationContent");
+
+    if (!userId) {
+      showStatus("Please enter a User ID first.");
+      return;
+    }
+
+    button.disabled = true;
+    button.textContent = "Luna is thinking...";
+
+    card.style.display = "block";
+
+    content.innerHTML = `<div class="chart-empty">Looking at your recent patterns...</div>`;
+
+    try {
+
+      const response = await fetch(
+        "/api/recommend",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ userId: userId })
+        }
+      );
+
+      const data = await readJson(response);
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || "Unable to generate insights.");
+      }
+
+      recommendationData = data.recommendations;
+
+      renderRecommendations(recommendationData);
+
+      showStatus("Luna's insights are ready.", true, 2500);
+
+    } catch (error) {
+
+      content.innerHTML = `
+        <div class="chart-empty">
+          ${escapeHtml(error.message || "Unable to generate insights.")}
+        </div>
+      `;
+
+      showStatus(error.message || "Unable to generate insights.");
+
+    } finally {
+
+      button.disabled = false;
+      button.textContent = "✨ Get Luna's insights";
+
+    }
+
+  }
+
+
+  function renderRecommendations(recommendations) {
+
+    const content = byId("recommendationContent");
+
+    if (!recommendations) {
+      content.innerHTML = `<div class="chart-empty">No recommendations available yet.</div>`;
+      return;
+    }
+
+    let html = "";
+
+    if (recommendations.summary) {
+
+      html += `
+        <div class="recommendation-section">
+          <h3>Summary</h3>
+          <div class="recommendation-summary">
+            ${escapeHtml(recommendations.summary)}
+          </div>
+        </div>
+      `;
+
+    }
+
+    function addList(title, items) {
+
+      if (!Array.isArray(items) || !items.length) {
+        return "";
+      }
+
+      return `
+        <div class="recommendation-section">
+          <h3>${title}</h3>
+          <ul class="recommendation-list">
+            ${items.slice(0, 3).map(item => `<li>${escapeHtml(item)}</li>`).join("")}
+          </ul>
+        </div>
+      `;
+
+    }
+
+    html += addList("What you're doing well", recommendations.positives);
+    html += addList("Patterns to notice", recommendations.patterns);
+    html += addList("Suggestions", recommendations.suggestions);
+
+    if (!html) {
+      html = `<div class="chart-empty">No recommendations available yet.</div>`;
+    }
+
+    content.innerHTML = html;
+
+  }
+
+
+  /*
+   * ---------------------------------------------
+   * START-UP
+   * ---------------------------------------------
+   */
+
+  byId("entryDate").value = todayKey();
+
+  byId("entryDate").addEventListener("change", updateEntryDateUI);
+
+  updateEntryDateUI();
+
+
+  // If the app was left open past midnight,
+  // move "today" forward when it's reopened.
+  let lastSeenToday = todayKey();
+
+  document.addEventListener("visibilitychange", function() {
+
+    if (document.visibilityState !== "visible") {
+      return;
+    }
+
+    const today = todayKey();
+
+    if (today !== lastSeenToday) {
+
+      if (byId("entryDate").value === lastSeenToday) {
+        byId("entryDate").value = today;
+      }
+
+      lastSeenToday = today;
+
+      updateEntryDateUI();
+
+      if (dashboardData) {
+        renderDashboard(dashboardData);
+      }
+
+    }
+
+  });
+
+
+  // Ctrl/Cmd + Enter logs the entry.
+  byId("note").addEventListener("keydown", function(event) {
+
+    if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
+      event.preventDefault();
+      processEntry();
+    }
+
+  });
+
+
+  // Remember the User ID and open straight
+  // into the dashboard on return visits.
+  const savedUserId = getSavedUserId();
+
+  if (savedUserId) {
+
+    byId("userId").value = savedUserId;
+
+    byId("note").focus();
+
+    loadDashboard();
+
+  } else {
+
+    byId("userId").focus();
+
+  }
 
 </script>
 
