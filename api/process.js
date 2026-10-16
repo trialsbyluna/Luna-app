@@ -6,7 +6,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { userId, note } = req.body || {};
+    const { userId, note, date } = req.body || {};
 
     if (!note || !note.trim()) {
       return res.status(400).json({
@@ -32,8 +32,21 @@ export default async function handler(req, res) {
       });
     }
 
+    // Today's date in India time. The old version used UTC,
+    // so anything logged before 5:30am IST went to yesterday.
+    const todayIST =
+      new Date().toLocaleDateString("en-CA", {
+        timeZone: "Asia/Kolkata"
+      });
+
+    // The date the user picked in the app (yyyy-mm-dd).
+    // Falls back to today if missing, malformed, or in the future.
     const today =
-      new Date().toISOString().slice(0, 10);
+      typeof date === "string" &&
+      /^\d{4}-\d{2}-\d{2}$/.test(date) &&
+      date <= todayIST
+        ? date
+        : todayIST;
 
     // -----------------------------------------
     // PROMPT
@@ -57,6 +70,21 @@ GENERAL RULES:
 - Preserve useful food-specific details.
 - Preserve useful workout-specific details.
 - Preserve the meaning of the user's wellness information.
+
+VOICE INPUT:
+
+The note is often dictated by voice in Indian English, so some words may be misheard.
+Silently correct obvious speech-recognition mistakes before extracting, especially Indian
+dishes and gym terms. Examples:
+
+"poor ha" => poha
+"rajma chawal" may appear as "rage ma chawal"
+"chapati" may appear as "cha party"
+"paneer" may appear as "panir" or "pan ear"
+"dead lift" => deadlift
+"lat pull down" => lat pulldown
+
+Only correct when the intended word is clear. Never invent foods or exercises.
 
 -----------------------------------------
 FOOD
@@ -1176,7 +1204,42 @@ ${note}
 
       });
 
+      // A 0 here means "not mentioned", not a real value
+      // (nobody sleeps 0 hours or rates mood 0 out of 10).
+      // Save these as blanks so a later check-in on the
+      // same day doesn't wipe out earlier values with zeros.
+
+      numericFields.forEach(function(field) {
+
+        if (checkin[field] === 0) {
+          checkin[field] = null;
+        }
+
+      });
+
     });
+
+    // Drop wellness check-ins that ended up completely empty,
+    // so they don't add blank rows to the sheet.
+
+    for (let i = wellness.length - 1; i >= 0; i--) {
+
+      const checkin = wellness[i];
+
+      const hasNumber = [
+        "weight", "water", "sleep", "energy", "mood",
+        "stress", "hunger", "soreness", "steps", "period_day"
+      ].some(field => checkin[field] !== null);
+
+      const hasText = [
+        "cravings", "period_flow", "period_symptoms", "notes"
+      ].some(field => String(checkin[field] || "").trim() !== "");
+
+      if (!hasNumber && !hasText) {
+        wellness.splice(i, 1);
+      }
+
+    }
 
     // -----------------------------------------
     // VALIDATE
@@ -1308,6 +1371,9 @@ ${note}
     return res.status(200).json({
 
       success: true,
+
+      entryDate:
+        today,
 
       type:
         type,
