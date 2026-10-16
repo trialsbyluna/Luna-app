@@ -6,19 +6,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { userId, note, date } = req.body || {};
-
-    if (!note || !note.trim()) {
-      return res.status(400).json({
-        error: "Please enter what happened."
-      });
-    }
-
-    if (!process.env.GEMINI_API_KEY) {
-      return res.status(500).json({
-        error: "Gemini API key is not configured."
-      });
-    }
+    const { userId, note, date, checkin } = req.body || {};
 
     if (!process.env.GOOGLE_SHEETS_WEBHOOK_URL) {
       return res.status(500).json({
@@ -47,6 +35,27 @@ export default async function handler(req, res) {
       date <= todayIST
         ? date
         : todayIST;
+
+    // -----------------------------------------
+    // QUICK CHECK-IN (steps, water, sleep, weight)
+    // Saved straight to the sheet, no AI needed.
+    // -----------------------------------------
+
+    if (checkin && typeof checkin === "object") {
+      return saveQuickCheckin(res, userId, today, checkin);
+    }
+
+    if (!note || !note.trim()) {
+      return res.status(400).json({
+        error: "Please enter what happened."
+      });
+    }
+
+    if (!process.env.GEMINI_API_KEY) {
+      return res.status(500).json({
+        error: "Gemini API key is not configured."
+      });
+    }
 
     // -----------------------------------------
     // PROMPT
@@ -1421,4 +1430,115 @@ ${note}
     });
 
   }
+}
+
+// -----------------------------------------
+// QUICK CHECK-IN
+// -----------------------------------------
+
+function checkinNumber(value, min, max) {
+
+  if (value === null || value === undefined || value === "") {
+    return null;
+  }
+
+  const number = Number(value);
+
+  if (!Number.isFinite(number) || number <= min || number > max) {
+    return undefined;
+  }
+
+  return Math.round(number * 100) / 100;
+
+}
+
+
+async function saveQuickCheckin(res, userId, entryDate, checkin) {
+
+  const steps = checkinNumber(checkin.steps, 0, 100000);
+  const water = checkinNumber(checkin.water, 0, 10);
+  const sleep = checkinNumber(checkin.sleep, 0, 24);
+  const weight = checkinNumber(checkin.weight, 25, 300);
+
+  const problems = [];
+
+  if (steps === undefined) problems.push("steps (up to 100,000)");
+  if (water === undefined) problems.push("water in litres (up to 10)");
+  if (sleep === undefined) problems.push("sleep in hours (up to 24)");
+  if (weight === undefined) problems.push("weight in kg (25 to 300)");
+
+  if (problems.length) {
+    return res.status(400).json({
+      error: "Please check: " + problems.join(", ") + "."
+    });
+  }
+
+  if (steps === null && water === null && sleep === null && weight === null) {
+    return res.status(400).json({
+      error: "Enter at least one of steps, water, sleep or weight."
+    });
+  }
+
+  const wellness = [{
+    weight: weight,
+    water: water,
+    sleep: sleep,
+    energy: null,
+    mood: null,
+    stress: null,
+    hunger: null,
+    cravings: "",
+    soreness: null,
+    steps: steps === null ? null : Math.round(steps),
+    period_day: null,
+    period_flow: "",
+    period_symptoms: "",
+    notes: "Quick check-in"
+  }];
+
+  const sheetsResponse = await fetch(
+    process.env.GOOGLE_SHEETS_WEBHOOK_URL,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        token: process.env.LUNA_SHEETS_SECRET,
+        date: entryDate,
+        userId: userId || "",
+        foods: [],
+        workouts: [],
+        wellness: wellness
+      })
+    }
+  );
+
+  const sheetsText = await sheetsResponse.text();
+
+  let sheetsData;
+
+  try {
+    sheetsData = JSON.parse(sheetsText);
+  } catch {
+    return res.status(500).json({
+      error: "Google Sheets did not return valid JSON."
+    });
+  }
+
+  if (!sheetsResponse.ok || !sheetsData.success) {
+    return res.status(500).json({
+      error: sheetsData.error || "Google Sheets rejected the request."
+    });
+  }
+
+  return res.status(200).json({
+    success: true,
+    entryDate: entryDate,
+    type: "wellness",
+    foods: [],
+    workouts: [],
+    wellness: wellness,
+    rowsAdded: sheetsData.rowsAdded || 0,
+    wellnessRowsAdded: sheetsData.wellnessRowsAdded || 0
+  });
+
 }
