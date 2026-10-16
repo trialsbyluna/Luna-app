@@ -815,6 +815,15 @@
             <input id="profileSteps" type="number" inputmode="numeric" min="1000" max="50000" step="500" placeholder="8000">
           </div>
 
+          <div>
+            <label for="profileCustomCalories">Custom calorie target (kcal)</label>
+            <input id="profileCustomCalories" type="number" inputmode="numeric" min="1000" max="5000" step="50" placeholder="Optional, e.g. 1500">
+          </div>
+
+        </div>
+
+        <div class="small" style="margin-bottom:16px;">
+          Leave the custom calorie target empty to use the formula. Fill it in only if a coach or dietitian has given you a daily number.
         </div>
 
         <details class="quick-checkin" style="margin-top:0; margin-bottom:16px;">
@@ -2752,8 +2761,26 @@
     const targets = getTargets();
     const parts = [goalLabel(profile.goal)];
 
-    if (profile.maintenance) {
-      parts.push("Maintenance about " + formatNumber(profile.maintenance) + " kcal");
+    // Lead with the daily target, and say where it comes from.
+    if (targets.calories) {
+
+      const custom = numberOrNull(profile.customCalorieTarget);
+      const maintenance = numberOrNull(profile.maintenance);
+      let source = "";
+
+      if (custom && Math.round(custom) === Math.round(targets.calories)) {
+        source = "your custom target";
+      } else if (maintenance && Math.round(maintenance - targets.calories) === 500) {
+        source = "maintenance " + formatNumber(maintenance) + " − 500";
+      } else if (maintenance) {
+        source = "maintenance " + formatNumber(maintenance);
+      }
+
+      parts.push(
+        "Daily target " + formatNumber(targets.calories) + " kcal" +
+        (source ? " (" + source + ")" : "")
+      );
+
     }
 
     subtitle.textContent = parts.filter(Boolean).join(" · ");
@@ -2861,6 +2888,7 @@
     byId("profileWeight").value = p.currentWeight || "";
     byId("profileGoalWeight").value = p.goalWeight || "";
     byId("profileSteps").value = p.stepsGoal || 8000;
+    byId("profileCustomCalories").value = p.customCalorieTarget || "";
     byId("profileEmail").value = p.email || "";
     byId("profileInjuries").value = p.injuries || "";
     byId("profileMedical").value = p.medical || "";
@@ -2928,6 +2956,7 @@
       goalWeight: byId("profileGoalWeight").value || byId("profileWeight").value,
       activityLevel: byId("profileActivity").value,
       stepsGoal: byId("profileSteps").value || 8000,
+      customCalorieTarget: byId("profileCustomCalories").value,
       email: byId("profileEmail").value.trim(),
       dietaryPreference: byId("profileDiet").value,
       injuries: byId("profileInjuries").value.trim(),
