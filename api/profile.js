@@ -107,6 +107,7 @@ export default async function handler(req, res) {
     const currentWeight = numberInRange(profile.currentWeight, 25, 300);
     const goalWeight = numberInRange(profile.goalWeight, 25, 300);
     const stepsGoal = numberInRange(profile.stepsGoal, 1000, 50000);
+    const customCalorieTarget = numberInRange(profile.customCalorieTarget, 1000, 5000);
 
     const gender = GENDERS.includes(profile.gender) ? profile.gender : "";
     const activityLevel = ACTIVITY_LEVELS.includes(profile.activityLevel) ? profile.activityLevel : "";
@@ -123,6 +124,7 @@ export default async function handler(req, res) {
     if (goalWeight === undefined) problems.push("goal weight between 25 and 300 kg");
     if (!activityLevel) problems.push("activity level");
     if (stepsGoal === undefined) problems.push("steps goal between 1,000 and 50,000");
+    if (customCalorieTarget === undefined) problems.push("custom calorie target between 1,000 and 5,000 kcal");
     if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) problems.push("email address");
 
     if (problems.length) {
@@ -146,7 +148,8 @@ export default async function handler(req, res) {
       dietaryPreference: dietaryPreference,
       injuries: shortText(profile.injuries, 300),
       medical: shortText(profile.medical, 300),
-      stepsGoal: stepsGoal ? Math.round(stepsGoal) : 8000
+      stepsGoal: stepsGoal ? Math.round(stepsGoal) : 8000,
+      customCalorieTarget: customCalorieTarget ? Math.round(customCalorieTarget) : null
     };
 
     const response = await fetch(webhookUrl, {
